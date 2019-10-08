@@ -67,7 +67,3 @@ def getIK(x, y):
     """
     """
     pass
-
-
-if __name__ == '__main__':
-    print(getForwardModel(0, 0))
