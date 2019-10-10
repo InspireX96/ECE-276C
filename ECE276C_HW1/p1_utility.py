@@ -60,7 +60,12 @@ def getForwardModel(q0, q1):
 
 def getJacobian(q0, q1):
     """
+    Get robot Jacobian
     Jacobian matrix is obtained by matlab helper script
+
+    :param q0: float, central joint angle (rad)
+    :param q1: float, elbow joint angle (rad)
+    :return: 3 x 2 np ndarray, Jacobian matrix
     """
     return np.array([[- np.sin(q0)/10 - (11*np.cos(q0)*np.sin(q1))/100 - (11*np.cos(q1)*np.sin(q0))/100, - (11*np.cos(q0)*np.sin(q1))/100 - (11*np.cos(q1)*np.sin(q0))/100],
                      [np.cos(q0)/10 + (11*np.cos(q0)*np.cos(q1))/100 - (11*np.sin(q0)*np.sin(q1)) /
@@ -70,5 +75,44 @@ def getJacobian(q0, q1):
 
 def getIK(x, y):
     """
+    Get robot inverse kinematics
+    Using Levenberg-Marquardt algorithm
+
+    :param:
+    :return:
     """
     pass
+
+
+if __name__ == '__main__':
+    # define
+    x = 0.1
+    y = 0.1
+
+    # f = lambda residual: 0.5 * residual.T @ residual
+    mu = 2
+    f = lambda residual: 0.5 * residual ** 2
+    
+    # init
+    joint_angle_init_guess = np.array([[0, 0]]).T     # 2 x 1 array
+    lam = np.max(np.diag(getJacobian(joint_angle_init_guess[0, 0], joint_angle_init_guess[1, 0])))
+    
+    joint_angle = joint_angle_init_guess
+    for k in range(10):   # TODO: break condition
+        j_mat = getJacobian(joint_angle[0, 0], joint_angle[1, 0])
+        
+        left_term = j_mat.T@j_mat + lam * np.diag(j_mat.T@j_mat)
+        residual = (np.array([x, y, 0]) - getForwardModel(joint_angle[0, 0], joint_angle[1, 0])).reshape(-1, 3).T
+        right_term = j_mat.T@f(residual)
+        delta = np.linalg.pinv(left_term) @ right_term
+
+        joint_angle_new = joint_angle + delta
+        residual_new = (np.array([x, y, 0]) - getForwardModel(joint_angle_new[0, 0], joint_angle_new[1, 0])).reshape(-1, 3).T
+        if np.linalg.norm(f(residual_new)) < np.linalg.norm(f(residual)):
+            joint_angle = joint_angle_new
+            lam /= mu
+        else:
+            lam *= mu
+
+    print(k)
+    print(joint_angle)
