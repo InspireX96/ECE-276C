@@ -5,6 +5,7 @@ Utility functions for p1
 """
 
 import numpy as np
+import logging
 
 # define links
 L0 = 0.1
@@ -73,35 +74,34 @@ def getJacobian(q0, q1):
                      [1, 1]])
 
 
-def getIK(x, y):
+def getIK(x, y, joint_angle_init_guess=np.array([0.1, 0.1]), mu=2):
     """
     Get robot inverse kinematics
     Using Levenberg-Marquardt algorithm
 
-    :param:
-    :return:
+    :param x: float, end effector x position (x)
+    :param y: float, end effector y position (y)
+    :param joint_angle_init_guess: np array (len=2), initial guess of joint angle, default is [0.1, 0.1]
+    :param mu: float, decay rate, should be >= 1
+    :return: np array (len=2), joint angle [q0, q1] (rad)
     """
-    pass
+    assert isinstance(joint_angle_init_guess, np.ndarray)
+    assert joint_angle_init_guess.shape == (2, )
+    assert mu >= 1
 
-
-if __name__ == '__main__':
-    # define
-    x = 0.25
-    y = 0.0
-
-    # f = lambda residual: 0.5 * residual.T @ residual
-    mu = 2
-    f = lambda residual: 0.5 * residual ** 2
-    calculate_residual = lambda x, y, joint_angle: (np.array([x, y, 0]) - np.hstack((getForwardModel(joint_angle[0, 0], joint_angle[1, 0])[:2], [0]))).reshape(-1, 3).T
+    # helper functions
+    f = lambda residual: 0.5 * residual
+    calculate_residual = lambda x, y, joint_angle: (np.array([x, y]) - getForwardModel(joint_angle[0, 0], joint_angle[1, 0])[:2]).reshape(-1, 2).T
     
     # init
-    joint_angle = np.array([[1.0, 1.0]]).T     # 2 x 1 array, initial guess of joint angle
-    j_mat = getJacobian(joint_angle[0, 0], joint_angle[1, 0])
+    joint_angle = joint_angle_init_guess.reshape(2, 1)
+    j_mat = getJacobian(joint_angle[0, 0], joint_angle[1, 0])[:2, :2]   # use 2 x 2 Jacobian since we cannot control theta
     lam = np.max(np.diag(j_mat.T @ j_mat))
+    logging.info('Entering IK calculation, lam: {}, mu: {}'.format(lam, mu))
     
     for k in range(50):   # TODO: break condition
         # find delta
-        j_mat = getJacobian(joint_angle[0, 0], joint_angle[1, 0])   # calculate Jacobian
+        j_mat = getJacobian(joint_angle[0, 0], joint_angle[1, 0])[:2, :2]   # use 2 x 2 Jacobian since we cannot control theta
         left_term = j_mat.T @ j_mat + lam * np.diag(j_mat.T @ j_mat)
         residual = calculate_residual(x, y, joint_angle)
         right_term = j_mat.T @ f(residual)
@@ -115,16 +115,13 @@ if __name__ == '__main__':
             break
         
         residual_new = calculate_residual(x, y, joint_angle_new)
-        print(residual)
         if np.linalg.norm(f(residual_new)) < np.linalg.norm(f(residual)):
             joint_angle = joint_angle_new
             lam /= mu
         else:
             lam *= mu
         
-
-    print('k: ', k)
-    print('lam: ', lam)
-    print('joint_angle: \n', joint_angle)
-    print('desired pos: ', np.array([x, y]))
-    print('calculated pos: ', getForwardModel(joint_angle[0, 0], joint_angle[1, 0])[:2])
+    joint_angle = joint_angle[:, 0]  # flatten array
+    logging.info('Found IK solution in {} iterations'.format(k))
+    return joint_angle
+    
