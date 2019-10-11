@@ -86,33 +86,45 @@ def getIK(x, y):
 
 if __name__ == '__main__':
     # define
-    x = 0.1
-    y = 0.1
+    x = 0.25
+    y = 0.0
 
     # f = lambda residual: 0.5 * residual.T @ residual
     mu = 2
     f = lambda residual: 0.5 * residual ** 2
+    calculate_residual = lambda x, y, joint_angle: (np.array([x, y, 0]) - np.hstack((getForwardModel(joint_angle[0, 0], joint_angle[1, 0])[:2], [0]))).reshape(-1, 3).T
     
     # init
-    joint_angle_init_guess = np.array([[0, 0]]).T     # 2 x 1 array
-    lam = np.max(np.diag(getJacobian(joint_angle_init_guess[0, 0], joint_angle_init_guess[1, 0])))
+    joint_angle = np.array([[1.0, 1.0]]).T     # 2 x 1 array, initial guess of joint angle
+    j_mat = getJacobian(joint_angle[0, 0], joint_angle[1, 0])
+    lam = np.max(np.diag(j_mat.T @ j_mat))
     
-    joint_angle = joint_angle_init_guess
-    for k in range(10):   # TODO: break condition
-        j_mat = getJacobian(joint_angle[0, 0], joint_angle[1, 0])
-        
-        left_term = j_mat.T@j_mat + lam * np.diag(j_mat.T@j_mat)
-        residual = (np.array([x, y, 0]) - getForwardModel(joint_angle[0, 0], joint_angle[1, 0])).reshape(-1, 3).T
-        right_term = j_mat.T@f(residual)
-        delta = np.linalg.pinv(left_term) @ right_term
+    for k in range(50):   # TODO: break condition
+        # find delta
+        j_mat = getJacobian(joint_angle[0, 0], joint_angle[1, 0])   # calculate Jacobian
+        left_term = j_mat.T @ j_mat + lam * np.diag(j_mat.T @ j_mat)
+        residual = calculate_residual(x, y, joint_angle)
+        right_term = j_mat.T @ f(residual)
+        delta = np.linalg.pinv(left_term) @ right_term   # numpy uses SVD for pinv
 
+        # update joint angle
         joint_angle_new = joint_angle + delta
-        residual_new = (np.array([x, y, 0]) - getForwardModel(joint_angle_new[0, 0], joint_angle_new[1, 0])).reshape(-1, 3).T
+        
+        # break condition
+        if (np.linalg.norm(joint_angle_new - joint_angle)) < 1e-2:
+            break
+        
+        residual_new = calculate_residual(x, y, joint_angle_new)
+        print(residual)
         if np.linalg.norm(f(residual_new)) < np.linalg.norm(f(residual)):
             joint_angle = joint_angle_new
             lam /= mu
         else:
             lam *= mu
+        
 
-    print(k)
-    print(joint_angle)
+    print('k: ', k)
+    print('lam: ', lam)
+    print('joint_angle: \n', joint_angle)
+    print('desired pos: ', np.array([x, y]))
+    print('calculated pos: ', getForwardModel(joint_angle[0, 0], joint_angle[1, 0])[:2])
