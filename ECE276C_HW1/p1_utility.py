@@ -95,7 +95,7 @@ def getIK(x, y, joint_angle_init_guess=np.array([0.1, 0.1]), mu=2, eps=1e-2, max
 
     # helper functions
     f = lambda residual: 0.5 * residual
-    calculate_residual = lambda x, y, joint_angle: (np.array([x, y]) - getForwardModel(joint_angle[0, 0], joint_angle[1, 0])[:2]).reshape(-1, 2).T
+    calculateResidual = lambda x, y, joint_angle: (np.array([x, y]) - getForwardModel(joint_angle[0, 0], joint_angle[1, 0])[:2]).reshape(-1, 2).T
     
     # init
     joint_angle = joint_angle_init_guess.reshape(2, 1)
@@ -107,7 +107,7 @@ def getIK(x, y, joint_angle_init_guess=np.array([0.1, 0.1]), mu=2, eps=1e-2, max
         # find delta
         j_mat = getJacobian(joint_angle[0, 0], joint_angle[1, 0])[:2, :2]   # use 2 x 2 Jacobian since we cannot control theta
         left_term = j_mat.T @ j_mat + lam * np.diag(j_mat.T @ j_mat)
-        residual = calculate_residual(x, y, joint_angle)
+        residual = calculateResidual(x, y, joint_angle)
         right_term = j_mat.T @ f(residual)
         delta = np.linalg.pinv(left_term) @ right_term   # numpy uses SVD for pinv
 
@@ -118,7 +118,7 @@ def getIK(x, y, joint_angle_init_guess=np.array([0.1, 0.1]), mu=2, eps=1e-2, max
         if (np.linalg.norm(joint_angle_new - joint_angle)) < eps:
             break
         
-        residual_new = calculate_residual(x, y, joint_angle_new)
+        residual_new = calculateResidual(x, y, joint_angle_new)
         if np.linalg.norm(f(residual_new)) < np.linalg.norm(f(residual)):
             joint_angle = joint_angle_new
             lam /= mu
