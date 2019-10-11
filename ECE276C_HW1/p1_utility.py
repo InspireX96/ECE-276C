@@ -74,7 +74,7 @@ def getJacobian(q0, q1):
                      [1, 1]])
 
 
-def getIK(x, y, joint_angle_init_guess=np.array([0.1, 0.1]), mu=2, eps=1e-2):
+def getIK(x, y, joint_angle_init_guess=np.array([0.1, 0.1]), mu=2, eps=1e-2, max_iter=50):
     """
     Get robot inverse kinematics
     Using Levenberg-Marquardt algorithm
@@ -84,11 +84,14 @@ def getIK(x, y, joint_angle_init_guess=np.array([0.1, 0.1]), mu=2, eps=1e-2):
     :param joint_angle_init_guess: np array (len=2), initial guess of joint angle, default is [0.1, 0.1]
     :param mu: float, decay rate, should be >= 1
     :param eps: float, tolerance of convergence
+    :param max_iter: int, max iteration
     :return: np array (len=2), joint angle [q0, q1] (rad)
     """
     assert isinstance(joint_angle_init_guess, np.ndarray)
     assert joint_angle_init_guess.shape == (2, )
     assert mu >= 1
+    assert isinstance(max_iter, int)
+    assert max_iter > 0
 
     # helper functions
     f = lambda residual: 0.5 * residual
@@ -100,7 +103,7 @@ def getIK(x, y, joint_angle_init_guess=np.array([0.1, 0.1]), mu=2, eps=1e-2):
     lam = np.max(np.diag(j_mat.T @ j_mat))
     logging.info('Entering IK calculation, lam: {}, mu: {}'.format(lam, mu))
     
-    for k in range(50):   # TODO: break condition
+    for k in range(max_iter):
         # find delta
         j_mat = getJacobian(joint_angle[0, 0], joint_angle[1, 0])[:2, :2]   # use 2 x 2 Jacobian since we cannot control theta
         left_term = j_mat.T @ j_mat + lam * np.diag(j_mat.T @ j_mat)
