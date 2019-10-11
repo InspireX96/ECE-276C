@@ -74,7 +74,7 @@ def getJacobian(q0, q1):
                      [1, 1]])
 
 
-def getIK(x, y, joint_angle_init_guess=np.array([0.1, 0.1]), mu=2):
+def getIK(x, y, joint_angle_init_guess=np.array([0.1, 0.1]), mu=2, eps=1e-2):
     """
     Get robot inverse kinematics
     Using Levenberg-Marquardt algorithm
@@ -83,6 +83,7 @@ def getIK(x, y, joint_angle_init_guess=np.array([0.1, 0.1]), mu=2):
     :param y: float, end effector y position (y)
     :param joint_angle_init_guess: np array (len=2), initial guess of joint angle, default is [0.1, 0.1]
     :param mu: float, decay rate, should be >= 1
+    :param eps: float, tolerance of convergence
     :return: np array (len=2), joint angle [q0, q1] (rad)
     """
     assert isinstance(joint_angle_init_guess, np.ndarray)
@@ -111,7 +112,7 @@ def getIK(x, y, joint_angle_init_guess=np.array([0.1, 0.1]), mu=2):
         joint_angle_new = joint_angle + delta
         
         # break condition
-        if (np.linalg.norm(joint_angle_new - joint_angle)) < 1e-2:
+        if (np.linalg.norm(joint_angle_new - joint_angle)) < eps:
             break
         
         residual_new = calculate_residual(x, y, joint_angle_new)
