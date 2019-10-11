@@ -30,6 +30,19 @@ def getTrajectory(theta):
     y = (0.19 + 0.02 * np.cos(4 * theta)) * np.sin(theta)
     return x, y
 
+def calculateMSE(traj_ref, traj_control):
+    """
+    Calculate mean square error
+
+    :param traj_ref: np ndarray, reference trajectory
+    :param traj_control: np ndarray, real trajectory
+    :return: mean square error
+    """
+    traj_delta = traj_ref - traj_control
+    temp = np.sum(traj_delta ** 2, axis=1)
+    mse = temp.sum() / traj_ref.shape[0]
+    return mse
+
 def plotHelper(traj_ref, traj_control, title):
     """
     Plots for Question 1
@@ -94,6 +107,9 @@ if __name__ == '__main__':
     # plot
     traj_control = np.array(traj_control)
     plotHelper(traj_ref=traj, traj_control=traj_control, title='Question 1.4 End Effector Position PD Control')
+    
+    # mse
+    print('Problem 4 MSE: ', calculateMSE(traj, traj_control))
 
     # Problem 5
     # reset environment
@@ -130,7 +146,9 @@ if __name__ == '__main__':
         # save trajectory
         traj_control.append(getForwardModel(q0, q1)[:2].tolist())
 
-    traj_control = np.array(traj_control)
     # plot
     traj_control = np.array(traj_control)
     plotHelper(traj_ref=traj, traj_control=traj_control, title='Question 1.5 Joint Angle PD Control')
+
+    # mse
+    print('Problem 5 MSE: ', calculateMSE(traj, traj_control))
