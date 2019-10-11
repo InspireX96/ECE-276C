@@ -9,10 +9,7 @@ import sys
 import logging
 import numpy as np
 import gym
-try:
-    import pybulletgym.envs
-except Exception as err:
-    logging.warning('Should not reload pybulletgym: {}.'.format(err))
+import pybulletgym.envs
 
 sys.path.append('../')
 from p1_env import ReacherEnv
