@@ -64,7 +64,7 @@ def plotHelper(traj_ref, traj_control, title):
 
 if __name__ == '__main__':
     # get trajectory
-    dt = 0.1
+    dt = 0.01
     traj = []
     for theta in np.arange(-np.pi, np.pi, dt):
         traj.append(list(getTrajectory(theta)))
@@ -78,10 +78,14 @@ if __name__ == '__main__':
 
     env.reset()
     robot = ReacherEnv(env)
+    # robot.setJointPosition(0, 0)
 
     # define gains
-    Kp = np.diag([1, 1])
-    Kd = np.diag([10, 10])
+    # robot.setJointPosition(np.pi, 0)    # TODO
+    Kp = 0.1  # TODO
+    Kd = 0
+    # Kp = np.diag([1, 1])
+    # Kd = np.diag([1e-5, 1e-5])
 
     # Problem 4
     controller = ReacherEnvController(Kp, Kd)
@@ -98,8 +102,9 @@ if __name__ == '__main__':
         q_delta = controller.pdControlEndEffector(state_err, q0, q1, dt)
 
         # robot action
-        q0, q1 = q0 + q_delta[0], q1 + q_delta[1]
-        robot.setJointPosition(q0, q1)
+        # q0, q1 = q0 + q_delta[0], q1 + q_delta[1]
+        env.step(q_delta)    # TODO
+        # robot.setJointPosition(q0, q1)
 
         # save trajectory
         traj_control.append(state_now.tolist())
@@ -113,14 +118,21 @@ if __name__ == '__main__':
 
     # Problem 5
     # reset environment
+    dt = 0.1
+    traj = []
+    for theta in np.arange(-np.pi, np.pi, dt):
+        traj.append(list(getTrajectory(theta)))
+    traj = np.array(traj)
+    
     env.reset()
     robot = ReacherEnv(env)
+    # robot.setJointPosition(0, 0)
 
     # define gains
+    robot.setJointPosition(np.pi, 0)    # TODO
     Kp = np.diag([1, 1])
     Kd = np.diag([1e-5, 1e-5])
 
-    # Problem 4
     controller = ReacherEnvController(Kp, Kd)
     traj_control = []
     for theta in np.arange(-np.pi, np.pi, dt):
@@ -141,7 +153,8 @@ if __name__ == '__main__':
         q0, q1 = q0 % (2 * np.pi), q1 % (2 * np.pi)
 
         # robot action
-        robot.setJointPosition(q0, q1)
+        # robot.setJointPosition(q0, q1)
+        env.step(q_delta)
 
         # save trajectory
         traj_control.append(getForwardModel(q0, q1)[:2].tolist())

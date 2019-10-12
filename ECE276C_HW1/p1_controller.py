@@ -20,6 +20,7 @@ class ReacherEnvController():
         """
         self.Kp = Kp
         self.Kd = Kd
+        print('Kp: ', Kp, 'Kd: ', Kd)
         # define register for D control diff
         self._state_error_memory = np.zeros(2)
         self._q_error_memory = np.zeros(2)
@@ -41,7 +42,7 @@ class ReacherEnvController():
             state_delta = self.Kp * state_err
 
         # D control
-        d_control_input = (state_err - self._state_error_memory) / dt
+        d_control_input = -(state_err - self._state_error_memory) / dt   # assume vref = 0
         if isinstance(self.Kd, np.ndarray):
             d_control_output = self.Kd @ d_control_input
         else:
@@ -53,7 +54,8 @@ class ReacherEnvController():
 
         # kinematics
         j_mat = getJacobian(q0, q1)[:2, :2]
-        q_delta = (np.linalg.pinv(j_mat) @ state_err.reshape(2, -1))[:, 0]
+        # q_delta = (np.linalg.pinv(j_mat) @ state_err.reshape(2, -1))[:, 0]
+        q_delta = (j_mat.T @ state_err.reshape(2, -1))[:, 0]
         
         return q_delta
 
@@ -72,7 +74,7 @@ class ReacherEnvController():
             q_delta = self.Kp * q_err
 
         # D control
-        d_control_input = (q_err - self._q_error_memory) / dt
+        d_control_input = -(q_err - self._q_error_memory) / dt   # assume vref = 0
         if isinstance(self.Kd, np.ndarray):
             d_control_output = self.Kd @ d_control_input
         else:

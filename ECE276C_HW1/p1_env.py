@@ -38,3 +38,5 @@ class ReacherEnv(object):
         q0, q0_dot = self.env.unwrapped.robot.central_joint.current_position()
         q1, q1_dot = self.env.unwrapped.robot.elbow_joint.current_position()
         return q0, q0_dot, q1, q1_dot
+
+    # TODO: set qdot using env.step()
