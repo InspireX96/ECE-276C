@@ -135,9 +135,10 @@ if __name__ == '__main__':
 
     controller = ReacherEnvController(Kp, Kd)
     traj_control = []
+    q0, _, q1, _ = robot.getJointPositionAndVelocity()
     for theta in np.arange(-np.pi, np.pi, dt):
         state_ref = getTrajectory(theta)
-        q_ref = getIK(state_ref[0], state_ref[1])
+        q_ref = getIK(state_ref[0], state_ref[1], joint_angle_init_guess=np.array([q0, q1]))
         q0, _, q1, _ = robot.getJointPositionAndVelocity()
 
         # error
