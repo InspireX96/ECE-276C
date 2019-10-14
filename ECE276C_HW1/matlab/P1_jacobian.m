@@ -33,6 +33,13 @@ jacobian_matrix = jacobian([f1, f2, f3], [q0, q1])
 % to latex
 disp(latex(jacobian_matrix))
 
+%% Get traj x_dot, y_dot
+syms theta
+x = (0.19 + 0.02 * cos(4 * theta)) * cos(theta)
+y = (0.19 + 0.02 * cos(4 * theta)) * sin(theta)
+x_dot = diff(x, theta)
+y_dot = diff(y, theta)
+
 %% Helper functions
 function[dh_matrix] = getDhMatrix(alpha, a, theta, d)
     dh_matrix = [cos(theta), -sin(theta), 0, a;

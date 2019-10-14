@@ -3,6 +3,7 @@
 """
 PD controllers for p1
 """
+import logging
 import numpy as np
 
 from p1_utility import getForwardModel, getJacobian, getIK
@@ -20,68 +21,55 @@ class ReacherEnvController():
         """
         self.Kp = Kp
         self.Kd = Kd
-        print('Kp: ', Kp, 'Kd: ', Kd)
-        # define register for D control diff
-        self._state_error_memory = np.zeros(2)
-        self._q_error_memory = np.zeros(2)
+        logging.info('Initialized controller with Kp: {}, Kd: {}'.format(Kp, Kd))
 
-    def pdControlEndEffector(self, state_err, q0, q1, dt):
+    def pdControlEndEffector(self, state_err, velocity_err, q0, q1):
         """
-        PD controller using error in the end-effector
+        PD controller using error in end-effector space
 
         :param state_err: np array (len=2), end effector error
+        :param velocity_err: np array (len=2), end effector velocity error
         :parma q0: float, central joint angle (rad)
         :param q1: float, elbow joint angle (rad)
-        :param dt: float, time step
-        :return q_delta: np array (len=2), joint angle difference
+        :return q_output: np array (len=2), joint angle control output
         """
+        assert isinstance(state_err, np.ndarray) and isinstance(velocity_err, np.ndarray)
+        assert state_err.shape == (2, ) and velocity_err.shape == (2, )
+
         # P control
-        if isinstance(self.Kp, np.ndarray):
-            state_delta = self.Kp @ state_err
-        else:
-            state_delta = self.Kp * state_err
+        state_delta = np.dot(self.Kp, state_err)
 
         # D control
-        d_control_input = -(state_err - self._state_error_memory) / dt   # assume vref = 0
-        if isinstance(self.Kd, np.ndarray):
-            d_control_output = self.Kd @ d_control_input
-        else:
-            d_control_output = self.Kd * d_control_input
-        self._state_error_memory = state_err   # update register
+        d_control_input = velocity_err
+        d_control_output = np.dot(self.Kd, d_control_input)
 
         # combine PD
         state_delta += d_control_output
 
         # kinematics
         j_mat = getJacobian(q0, q1)[:2, :2]
-        # q_delta = (np.linalg.pinv(j_mat) @ state_err.reshape(2, -1))[:, 0]
-        q_delta = (j_mat.T @ state_err.reshape(2, -1))[:, 0]
-        
-        return q_delta
+        q_output = (j_mat.T @ state_delta.reshape(2, -1))[:, 0]  # force control
 
-    def pdControlJoint(self, q_err, dt):
+        return q_output
+
+    def pdControlJoint(self, q_err, qdot_err):
         """
-        PD controller using teh error in the end-effector
+        PD controller using error in joint space
 
         :param q_err: np array (len=2), joint angle error
-        :param dt: float, time step
-        :return q_delta: np array (len=2), joint angle difference
+        :param qdot_error: np array (len=2), joint angular velocity error
+        :return q_output: np array (len=2), joint angle control output
         """
+        assert isinstance(q_err, np.ndarray) and isinstance(qdot_err, np.ndarray)
+        assert q_err.shape == (2, ) and qdot_err.shape == (2, )
+
         # P control
-        if isinstance(self.Kp, np.ndarray):
-            q_delta = self.Kp @ q_err
-        else:
-            q_delta = self.Kp * q_err
+        q_delta = np.dot(self.Kp, q_err)
 
         # D control
-        d_control_input = -(q_err - self._q_error_memory) / dt   # assume vref = 0
-        if isinstance(self.Kd, np.ndarray):
-            d_control_output = self.Kd @ d_control_input
-        else:
-            d_control_output = self.Kd * d_control_input
-        self._q_error_memory = q_err   # update register
+        d_control_output = np.dot(self.Kd, qdot_err)
 
         # combine PD
-        q_delta += d_control_output
+        q_output = q_delta + d_control_output
 
-        return q_delta
+        return q_output

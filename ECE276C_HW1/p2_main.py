@@ -47,7 +47,7 @@ if __name__ == '__main__':
     wheel_distance = env.l_f + env.l_r
 
     # define
-    Kp = 0.01
+    Kp = 1e-1
 
     for i in range(500):
         # entering control loop
@@ -56,17 +56,30 @@ if __name__ == '__main__':
         
         x_now, y_now, theta_now = state_obs[0], state_obs[1], state_obs[2]
         
-        d_x, d_y = state_ref[0] - x_now, state_ref[1] - y_now
+        dx, dy = state_ref[0] - x_now, state_ref[1] - y_now
 
-        thrust = Kp * (d_x ** 2 + d_y ** 2)
         gamma = kinematic_model(pos_ref=state_ref, pos_now=np.array([x_now, y_now]), theta_now=theta_now)
 
-        if i < 10:  # TODO
-            thrust = 1
-        elif i < 50:
-            thrust = -0.5
+        d_body = np.dot(np.array([[np.cos(theta_now), -np.sin(theta_now)],
+                                  [np.sin(theta_now), np.cos(theta_now)]]),
+                        np.array([dx, dy]))
+        print('d_body: ', d_body)
+
+        print('gamma:', gamma)
+        if abs(gamma) >= 0.2:
+            thrust = -1 + np.random.rand() * 0.1
         else:
-            thrust = - 1
+            thrust = Kp * (d_body[1] ** 2 - d_body[0] ** 2)     # TODO
+        # regularize
+        thrust -= 0.5
+        thrust = max(thrust, -0.9)
+        thrust = min(thrust, 0.5)
+        # if i < 10:  # TODO
+        #     thrust = 1
+        # elif i < 50:
+        #     thrust = -0.5
+        # else:
+        #     thrust = - 1
         env.step([gamma, thrust])
         print('i: {}, input (gamma, thrust): {}'.format(i, [gamma, thrust]))
         env.render()
