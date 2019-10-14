@@ -56,43 +56,42 @@ if __name__ == '__main__':
     # define
     Kp = 1e-2
 
+    # control loop
     for i in range(500):
-        # entering control loop
+        # observation
         state_obs = env.get_observation()
         state_ref = state_obs[-1]     # desired position
-        
         [x_now, y_now, theta_now, v_x, v_y] = state_obs[:5]
         
         dx, dy = state_ref[0] - x_now, state_ref[1] - y_now
-
-        gamma = kinematic_model(pos_ref=state_ref, pos_now=np.array([x_now, y_now]), theta_now=theta_now)
-
         d_body = np.dot(np.array([[np.cos(theta_now), -np.sin(theta_now)],
                                   [np.sin(theta_now), np.cos(theta_now)]]),
                         np.array([dx, dy]))
-        print('d_body: ', d_body)
         vel = np.sqrt(v_x ** 2 + v_y ** 2)
-        print('vel: ', vel)
 
-        print('gamma:', gamma)
+        # gamma control
+        gamma = kinematic_model(pos_ref=state_ref, pos_now=np.array([x_now, y_now]), theta_now=theta_now)
 
-        if i < 10:
+        # thrust control
+        if i < 15:
+            print(' launch control')
             thrust = 1  # launch control
-        # elif vel > 5:
-        elif abs(v_x) > 10
+        elif vel > 6:
+            print(' speed penalty')
             thrust = -1     # speed penalty
         else:
             if abs(gamma) >= 0.15:
-                thrust = -1 + np.random.rand() * 0.05
+                print('  wheel angle penalty')
+                thrust = -1 + np.random.rand() * 0.05   # wheel angle penalty
             else:
                 thrust = Kp * (d_body[1] ** 2 - d_body[0] ** 2)     # TODO
-            # speed limit
-            thrust -= 0.5
-            print('thrust before speed limit: ', thrust)
-            thrust = max(thrust, -1)      # lower limit
-            thrust = min(thrust, -0.5)      # upper limit
+                # speed limit
+                thrust -= 0.5
+                print('  thrust before speed limit: ', thrust)
+                thrust = max(thrust, -1)      # lower limit
+                thrust = min(thrust, -0.5)      # upper limit
 
         # action
         env.step([gamma, thrust])
-        print('i: {}, input (gamma, thrust): {}'.format(i, [gamma, thrust]))
+        print('i: {}, vel: {}, input (gamma, thrust): {}'.format(i, vel, [gamma, thrust]))
         env.render()
