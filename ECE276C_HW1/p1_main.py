@@ -30,16 +30,20 @@ def getReferencePosition(theta):
     y = (0.19 + 0.02 * np.cos(4 * theta)) * np.sin(theta)
     return x, y
 
+
 def getReferenceVelocity(theta):
     """
     Get reference velocity
-    
+
     :param theta: float, theta
     :return: x_dot, y_dot velocity of reference trajectory
     """
-    x_dot = - np.sin(theta)*(np.cos(4*theta)/50 + 19/100) - (2*np.sin(4*theta)*np.cos(theta))/25
-    y_dot = np.cos(theta)*(np.cos(4*theta)/50 + 19/100) - (2*np.sin(4*theta)*np.sin(theta))/25
+    x_dot = - np.sin(theta)*(np.cos(4*theta)/50 + 19/100) - \
+        (2*np.sin(4*theta)*np.cos(theta))/25
+    y_dot = np.cos(theta)*(np.cos(4*theta)/50 + 19/100) - \
+        (2*np.sin(4*theta)*np.sin(theta))/25
     return x_dot, y_dot
+
 
 def calculateMSE(traj_ref, traj_control):
     """
@@ -53,6 +57,7 @@ def calculateMSE(traj_ref, traj_control):
     temp = np.sum(traj_delta ** 2, axis=1)
     mse = temp.sum() / traj_ref.shape[0]
     return mse
+
 
 def plotHelper(traj_ref, traj_control, title):
     """
@@ -69,8 +74,8 @@ def plotHelper(traj_ref, traj_control, title):
     plt.plot(traj_control[:, 0], traj_control[:, 1])
     plt.title(title)
     plt.legend(['ref traj', 'real traj'])
+    plt.savefig(title.replace('.', '').strip())
     plt.show()
-    # TODO: save fig
 
 
 if __name__ == '__main__':
@@ -88,7 +93,8 @@ if __name__ == '__main__':
     env = gym.make("ReacherPyBulletEnv-v0")
     env.reset()
     robot = ReacherEnv(env)
-    robot.setJointPosition(np.pi, 0)    # TODO: comment this out for random start
+    # TODO: comment this out for random start
+    robot.setJointPosition(np.pi, 0)
 
     # define gains
     Kp = np.diag([200, 200])
@@ -105,14 +111,16 @@ if __name__ == '__main__':
         velocity_ref = getReferenceVelocity(theta)
         q0, q0_dot, q1, q1_dot = robot.getJointPositionAndVelocity()
         state_now = getForwardModel(q0, q1)[:2]
-        velocity_now = (getJacobian(q0, q1) @ np.array([q0_dot, q1_dot]).reshape(2, -1))[:2, 0]
+        velocity_now = (getJacobian(q0, q1) @ np.array(
+            [q0_dot, q1_dot]).reshape(2, -1))[:2, 0]
 
         # error
         state_err = state_ref - state_now
         velocity_err = velocity_ref - velocity_now
 
         # PD control
-        q_output = controller.pdControlEndEffector(state_err, velocity_err, q0, q1)
+        q_output = controller.pdControlEndEffector(
+            state_err, velocity_err, q0, q1)
 
         # robot action
         env.step(q_output)
@@ -122,8 +130,9 @@ if __name__ == '__main__':
         err_list.append(np.linalg.norm(state_err))
 
     # plot
-    plotHelper(traj_ref=traj, traj_control=np.array(traj_control), title='Question 1.4 End Effector Position PD Control')
-    
+    plotHelper(traj_ref=traj, traj_control=np.array(traj_control),
+               title='Question 1.4 End Effector Position PD Control')
+
     # plot error for tunning controller
     fig = plt.figure()
     plt.plot(err_list)
@@ -141,11 +150,13 @@ if __name__ == '__main__':
     # reset environment
     env.reset()
     robot = ReacherEnv(env)
-    robot.setJointPosition(np.pi, 0)
+    robot.setJointPosition(np.pi, 0)  # TODO: comment this out for random start
 
     # define gains
-    Kp = np.diag([10, 2])
-    Kd = np.diag([0.5, 0.25])
+    # Kp = np.diag([4.2, 2])
+    # Kd = np.diag([0.4, 0.25])
+    Kp = np.diag([4.2, 2.4])
+    Kd = np.diag([0.4, 0.18])
 
     # init control loop
     controller = ReacherEnvController(Kp, Kd)
@@ -158,8 +169,10 @@ if __name__ == '__main__':
     for theta in np.arange(-np.pi, np.pi, dt):
         state_ref = getReferencePosition(theta)
         velocity_ref = getReferenceVelocity(theta)
-        q_ref = getIK(state_ref[0], state_ref[1], joint_angle_init_guess=np.array([q0, q1]))
-        qdot_ref = np.dot(np.linalg.pinv(getJacobian(q_ref[0], q_ref[1])[:2, :2]), velocity_ref)
+        q_ref = getIK(state_ref[0], state_ref[1], joint_angle_init_guess=np.array(
+            [q0, q1]), eps=1e-4, max_iter=500)
+        qdot_ref = np.dot(np.linalg.pinv(getJacobian(
+            q_ref[0], q_ref[1])[:2, :2]), velocity_ref)
         q0, q0_dot, q1, q1_dot = robot.getJointPositionAndVelocity()
 
         # error
@@ -178,7 +191,8 @@ if __name__ == '__main__':
 
     # plot
     traj_control = np.array(traj_control)
-    plotHelper(traj_ref=traj, traj_control=traj_control, title='Question 1.5 Joint Angle PD Control')
+    plotHelper(traj_ref=traj, traj_control=traj_control,
+               title='Question 1.5 Joint Angle PD Control')
 
     # plot error for tunning controller
     fig = plt.figure()

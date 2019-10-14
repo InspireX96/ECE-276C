@@ -1,8 +1,9 @@
 % Helper to calculate jacobian for p1
 
 %% Define Transformation Matrices
-L0 = 0.1;
-L1 = 0.11;
+syms L0 L1
+% L0 = 0.1;
+% L1 = 0.11;
 % DH parameters
 syms q0 q1
 dh_parameters = [0, 0, q0, 0;
@@ -26,7 +27,6 @@ test_res = subs(subs(H0_3, q0, 0), q1, 0)   % q0 = 0, q1 = 0
 %% Calculate Jacobian
 f1 = H0_3(1, 4)
 f2 = H0_3(2, 4)
-% f3 = acos(H0_3(1, 1))
 f3 = q0 + q1;
 
 jacobian_matrix = jacobian([f1, f2, f3], [q0, q1])
