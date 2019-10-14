@@ -49,8 +49,8 @@ def calculateMSE(traj_ref, traj_control):
     """
     Calculate mean square error
 
-    :param traj_ref: np ndarray, reference trajectory
-    :param traj_control: np ndarray, real trajectory
+    :param traj_ref: N x 2 np ndarray, reference trajectory
+    :param traj_control: N x 2 np ndarray, real trajectory
     :return: mean square error
     """
     traj_delta = traj_ref - traj_control
@@ -63,10 +63,11 @@ def plotHelper(traj_ref, traj_control, title):
     """
     Plots for Question 1
 
-    :param traj_ref: np ndarray, reference trajectory
-    :param traj_control: np ndarray, real trajectory
+    :param traj_ref: N x 2 np ndarray, reference trajectory
+    :param traj_control: N x 2 np ndarray, real trajectory
     :param title: plot title
     """
+    assert isinstance(traj_ref, np.ndarray) and isinstance(traj_control, np.ndarray)
     assert isinstance(title, str)
     plt.figure()
     plt.gca().set_aspect('equal')
