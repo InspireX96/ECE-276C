@@ -14,7 +14,7 @@ To run code for question 2:
 python p2_main.py
 ```
 
-Note that to change track for question 2, you need to modify the comment in *line 74-76*:
+Note that to change track for question 2, you need to modify the comment in *line 74-76* in `p2_main.py`:
 
 ```python
 if __name__ == '__main__':
