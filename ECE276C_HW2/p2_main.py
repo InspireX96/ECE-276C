@@ -47,11 +47,27 @@ class QlearningPolicy(object):
         self.Q_table[state][action] += self.alpha * \
             (reward + self.gamma * np.max(Q_next) - Q_current)
 
-    def trainPolicy(self):
+    def _takeAction(self, state, episode):
         """
-        Train policy
+        Take action with epsilon-greedy
+        
+        :param state: [description]
+        :param episode: [description]
         """
         pass
+
+    def trainPolicy(self, episode=5000):
+        """
+        Train policy
+
+        :param episode: int (>0), training episode
+        """
+        assert isinstance(episode, int) and episode > 0
+        
+        for i in range(episode):
+            state = self.env.reset()
+            done = False
+            pass
 
     def testPolicy(self):
         """
