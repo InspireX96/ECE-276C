@@ -107,3 +107,6 @@ if __name__ == '__main__':
         qlearn = QlearningPolicy(env, alpha=alpha, gamma=gamma)
         policy = qlearn.trainPolicy()
         testPolicy(env, policy, trials=100, verbose=False)
+
+    # Q 2.2
+    # TODO
