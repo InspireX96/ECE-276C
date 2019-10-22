@@ -27,6 +27,7 @@ def testPolicy(env, policy, trials=100, verbose=False):
                              output action in (0, 1, 2, 3, 4)
     :param trials: int (>0), number of trials to test policy, defaults to 100
     :param verbose: bool, flag to print more infomation and render final state
+    :return: float, success rate
     """
     assert isinstance(trials, int) and trials > 0
     success = 0
@@ -43,11 +44,13 @@ def testPolicy(env, policy, trials=100, verbose=False):
             print('\n**trial {} final state: {}**'.format(i, state))
             env.render()
 
+    success_rate = success / trials
     if verbose:
         print('success rate: {} ({} out of {})'.format(
-            success / trials, success, trials))
+            success_rate, success, trials))
     else:
-        print('success rate: {}'.format(success / trials))
+        print('success rate: {}'.format(success_rate))
+    return success_rate
 
 
 def learnModel(samples=int(1e5)):
@@ -133,7 +136,8 @@ def policyEval(p_mat, r_mat, gamma, max_iter=50):
                 sum_temp = 0
                 for state_next in range(state_space_n):
                     sum_temp += p_mat[state, action, state_next] * \
-                        (r_mat[state, action, state_next] + gamma * V[state_next])
+                        (r_mat[state, action, state_next] +
+                         gamma * V[state_next])
                 V_temp[action] = sum_temp
             Pi[state] = np.argmax(V_temp)
 
