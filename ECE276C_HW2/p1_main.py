@@ -3,7 +3,8 @@ ECE 276C HW2 Question 1
 """
 import gym
 import numpy as np
-from p1_policy import policyEval, valueIter
+from matplotlib import pyplot as plt
+from p1_policy import policyEval, valueIter, testPolicy
 
 
 def toyPolicy(state):
@@ -14,43 +15,6 @@ def toyPolicy(state):
     :return: int, policy (LEFT = 0, DOWN = 1, RIGHT = 2, UP = 3)
     """
     return (state + 1) % 4
-
-
-def testPolicy(env, policy, trials=100, verbose=False):
-    """
-    Test policy, return averate rate of successful episodes
-    over 100 trials.
-
-    :param env: object, gym environment
-    :param policy: function, a deterministic policy that takes state as input,
-                             output action in (0, 1, 2, 3, 4)
-    :param trials: int (>0), number of trials to test policy, defaults to 100
-    :param verbose: bool, flag to print more infomation and render final state
-    :return: float, success rate
-    """
-    assert isinstance(trials, int) and trials > 0
-    success = 0
-
-    for i in range(trials):
-        state = env.reset()     # reset env
-        done = False
-        while not done:
-            action = policy(state)
-            state, _, done, _ = env.step(action)
-        if state == 15:
-            success += 1    # successfully reach goal
-        if verbose:
-            print('\n**trial {} final state: {}**'.format(i, state))
-            env.render()
-
-    success_rate = success / trials
-    if verbose:
-        print('success rate: {} ({} out of {})'.format(
-            success_rate, success, trials))
-    else:
-        print('success rate: {}'.format(success_rate))
-    return success_rate
-
 
 def learnModel(samples=int(1e5)):
     """
@@ -109,7 +73,7 @@ if __name__ == '__main__':
     # Question 1.3
     print('\n===== Question 1.3 =====\n')
     print('toy policy')
-    testPolicy(env, toyPolicy, trials=100, verbose=False)
+    testPolicy(env, toyPolicy, verbose=True)
 
     # Question 1.4
     p_mat, r_mat = learnModel()
@@ -119,11 +83,25 @@ if __name__ == '__main__':
     # Question 1.5
     print('\n===== Question 1.5 =====\n')
     print('Policy Iteration')
-    pi_policy = policyEval(env, p_mat, r_mat, gamma=0.99, max_iter=50)
-    testPolicy(env, pi_policy)
+    pi_policy, pi_success_rate = policyEval(env, p_mat, r_mat, gamma=0.99, max_iter=50)
+    testPolicy(env, pi_policy, verbose=True)
+    # plot
+    plt.figure()
+    plt.plot(pi_success_rate)
+    plt.title('Question 1.5 Policy Iteration')
+    plt.xlabel('Episode')
+    plt.ylabel('Success rate')
+    plt.show()
 
     # Question 1.6
     print('\n===== Question 1.6 =====\n')
     print('Value Iteration')
-    vi_policy = valueIter(env, p_mat, r_mat, gamma=0.99, max_iter=50)
-    testPolicy(env, vi_policy)
+    vi_policy, vi_success_rate = valueIter(env, p_mat, r_mat, gamma=0.99, max_iter=50)
+    testPolicy(env, vi_policy, verbose=True)
+    # plot
+    plt.figure()
+    plt.plot(pi_success_rate)
+    plt.title('Question 1.6 Value Iteration')
+    plt.xlabel('Episode')
+    plt.ylabel('Success rate')
+    plt.show()

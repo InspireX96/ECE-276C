@@ -6,7 +6,7 @@ from itertools import repeat
 import gym
 import numpy as np
 from sklearn.utils.extmath import cartesian
-from p1_main import testPolicy
+from p1_policy import testPolicy
 
 
 class QlearningPolicy(object):
@@ -146,7 +146,7 @@ def eval_policy(sample, env):
     qlearn = QlearningPolicy(env, alpha=alpha, gamma=gamma)
     policy = qlearn.trainPolicy()
     success_rate = testPolicy(env, policy, trials=100, verbose=False)
-    print('alpha: {}, gamma: {}'.format(alpha, gamma))
+    print('alpha: {}, gamma: {}, success rate: {}'.format(alpha, gamma, success_rate))
     return [alpha, gamma, success_rate]
 
 
@@ -161,7 +161,7 @@ if __name__ == '__main__':
         print('alpha: {}, gamma: {}'.format(alpha, gamma))
         qlearn = QlearningPolicy(env, alpha=alpha, gamma=gamma)
         policy = qlearn.trainPolicy()
-        testPolicy(env, policy, trials=100, verbose=False)
+        testPolicy(env, policy, trials=100, verbose=True)
 
     # Q 2.1(b)
     print('\n===== Question 2.1(b) =====\n')
@@ -170,7 +170,7 @@ if __name__ == '__main__':
         print('alpha: {}, gamma: {}'.format(alpha, gamma))
         qlearn = QlearningPolicy(env, alpha=alpha, gamma=gamma)
         policy = qlearn.trainPolicy()
-        testPolicy(env, policy, trials=100, verbose=False)
+        testPolicy(env, policy, trials=100, verbose=True)
 
     # Q 2.2
     print('\n===== Question 2.2 =====\n')
