@@ -1,10 +1,9 @@
 """
 ECE 276C HW2 Question 1
 """
-
-from copy import deepcopy
 import gym
 import numpy as np
+from p1_policy import policyEval, valueIter
 
 
 def toyPolicy(state):
@@ -72,6 +71,7 @@ def learnModel(samples=int(1e5)):
     trans_prob_mat = np.zeros((state_space_n, action_space_n, state_space_n))
     # state, action ,state_next
     reward_func_mat = np.zeros((state_space_n, action_space_n, state_space_n))
+    counter_mat = np.zeros((state_space_n, action_space_n, state_space_n))
 
     counter = 0
     while counter < samples:
@@ -85,91 +85,22 @@ def learnModel(samples=int(1e5)):
             # update
             trans_prob_mat[state, action, state_next] += 1
             reward_func_mat[state, action, state_next] += reward
+            counter_mat[state, action, state_next] += 1
 
             state = state_next
             counter += 1
 
     # normalize
-    trans_prob_mat /= samples
-    reward_func_mat /= samples
+    # TODO: this is wrong
+    for i in range(trans_prob_mat.shape[0]):
+        for j in range(trans_prob_mat.shape[1]):
+            norm_temp = np.linalg.norm(trans_prob_mat[i,j,:], ord=1)
+            if norm_temp != 0:
+                trans_prob_mat[i,j,:] /= norm_temp
+
+    counter_mat[counter_mat==0] = 1 # avoid singular
+    reward_func_mat /= counter_mat
     return trans_prob_mat, reward_func_mat
-
-
-def policyEval(p_mat, r_mat, gamma, max_iter=50):
-    """
-    Policy iteration
-
-    :param p_mat: np ndarray, transition probabilities matrix
-    :param r_mat: np ndarray, reward function matrix
-    :param gamma: float (0~1), discount factor
-    :param max_iter: int, max iterations
-    :return: a lambda policy function, take state as input and output action
-    """
-    assert isinstance(max_iter, int) and max_iter > 0
-    assert 0 < gamma <= 1
-
-    # get state space and action space dimension
-    state_space_n = env.observation_space.n
-    action_space_n = env.action_space.n
-
-    # init placeholders
-    V = np.zeros(state_space_n)
-    Pi = np.zeros(state_space_n, dtype=int)
-
-    for i in range(max_iter):
-        # policy evaluation
-        for state in range(state_space_n):
-            action_s = Pi[state]
-
-            sum_temp = 0
-            # import ipdb; ipdb.set_trace()
-            for state_next in range(state_space_n):
-                sum_temp += p_mat[state, action_s, state_next] * \
-                    (r_mat[state, action_s, state_next] + gamma * V[state_next])
-            V[state] = sum_temp
-
-        # policy improvement
-        Pi_old = deepcopy(Pi)
-        for state in range(state_space_n):
-            V_temp = np.zeros(action_space_n)
-            for action in range(action_space_n):
-                sum_temp = 0
-                for state_next in range(state_space_n):
-                    sum_temp += p_mat[state, action, state_next] * \
-                        (r_mat[state, action, state_next] +
-                         gamma * V[state_next])
-                V_temp[action] = sum_temp
-            Pi[state] = np.argmax(V_temp)
-
-        if (Pi == Pi_old).all():
-            print('PI converged in iteration {}'.format(i))
-    print('V^*: ', V)
-    print('Pi^* ', Pi)
-    return lambda state: Pi[state]
-
-
-def valueIter(p_mat, r_mat, gamma, max_iter=50):
-    """
-    Value iteration
-
-    :param p_mat: np ndarray, transition probabilities matrix
-    :param r_mat: np ndarray, reward function matrix
-    :param gamma: float (0~1), discount factor
-    :param max_iter: int, max iterations
-    :return: a lambda policy function, take state as input and output action
-    """
-    assert isinstance(max_iter, int) and max_iter > 0
-    assert 0 < gamma <= 1
-
-    # get state space and action space dimension
-    state_space_n = env.observation_space.n
-    action_space_n = env.action_space.n
-
-    # init placeholders
-    V = np.zeros(state_space_n)
-    Pi = np.zeros(state_space_n, dtype=int)
-
-    # TODO
 
 
 if __name__ == '__main__':
@@ -189,7 +120,10 @@ if __name__ == '__main__':
     # Question 1.5
     print('\n===== Question 1.5 =====\n')
     print('Policy Iteration')
-    pi_policy = policyEval(p_mat, r_mat, gamma=0.99)
+    pi_policy = policyEval(env, p_mat, r_mat, gamma=0.99, max_iter=50)
     testPolicy(env, pi_policy)
 
     # Question 1.6
+    print('\n===== Question 1.6 =====\n')
+    print('Value Iteration')
+    valueIter(env, p_mat, r_mat, gamma=0.99, max_iter=50)
