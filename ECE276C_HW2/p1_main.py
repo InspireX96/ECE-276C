@@ -125,4 +125,5 @@ if __name__ == '__main__':
     # Question 1.6
     print('\n===== Question 1.6 =====\n')
     print('Value Iteration')
-    valueIter(env, p_mat, r_mat, gamma=0.99, max_iter=50)
+    vi_policy = valueIter(env, p_mat, r_mat, gamma=0.99, max_iter=50)
+    testPolicy(env, vi_policy)

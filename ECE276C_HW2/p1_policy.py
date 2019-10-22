@@ -112,4 +112,17 @@ def valueIter(env, p_mat, r_mat, gamma, max_iter=50):
                 break
 
     # TODO: policy recovery
-    print('V: ', V)
+    for state in range(state_space_n):
+        pis_temp = []
+        for action in range(action_space_n):
+            sum_temp = 0
+            for state_next in range(state_space_n):
+                sum_temp += p_mat[state, action, state_next] * \
+                    (r_mat[state, action, state_next] +
+                        gamma * V[state_next])
+            pis_temp.append(sum_temp)
+        Pi[state] = np.argmax(pis_temp)
+
+    print('V^*: ', V)
+    print('Pi^* ', Pi)
+    return lambda state: Pi[state]
