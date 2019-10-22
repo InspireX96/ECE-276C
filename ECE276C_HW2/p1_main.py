@@ -91,7 +91,6 @@ def learnModel(samples=int(1e5)):
             counter += 1
 
     # normalize
-    # TODO: this is wrong
     for i in range(trans_prob_mat.shape[0]):
         for j in range(trans_prob_mat.shape[1]):
             norm_temp = np.linalg.norm(trans_prob_mat[i,j,:], ord=1)

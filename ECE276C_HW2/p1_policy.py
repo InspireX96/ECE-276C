@@ -28,26 +28,18 @@ def policyEval(env, p_mat, r_mat, gamma, max_iter=50):
     Pi = np.zeros(state_space_n, dtype=int)
 
     for i in range(max_iter):
-        print('Episode {}'.format(i))
+        print('Episode {}'.format(i), end='')
         # policy evaluation
-        delta = []
-        for j in range(100):
-            # TODO
-            for state in range(state_space_n):
-                v_old = V[state]
+        for state in range(state_space_n):
+            v_old = V[state]
 
-                action_s = Pi[state]
-                sum_temp = 0
-                for state_next in range(state_space_n):
-                    sum_temp += p_mat[state, action_s, state_next] * \
-                        (r_mat[state, action_s, state_next] + gamma * V[state_next])
-                V[state] = sum_temp
-                delta.append(abs(v_old - V[state]))
-            # import ipdb; ipdb.set_trace()
-            if max(delta) < 1e-3:
-                # import ipdb; ipdb.set_trace()
-                print('    V converged in {} iterations'.format(j))
-                break
+            action_s = Pi[state]
+            sum_temp = 0
+            for state_next in range(state_space_n):
+                sum_temp += p_mat[state, action_s, state_next] * \
+                    (r_mat[state, action_s, state_next] +
+                        gamma * V[state_next])
+            V[state] = sum_temp
 
         # policy improvement
         for j in range(100):
@@ -59,13 +51,14 @@ def policyEval(env, p_mat, r_mat, gamma, max_iter=50):
                     for state_next in range(state_space_n):
                         sum_temp += p_mat[state, action, state_next] * \
                             (r_mat[state, action, state_next] +
-                            gamma * V[state_next])
+                             gamma * V[state_next])
                     V_temp[action] = sum_temp
                 Pi[state] = np.argmax(V_temp)
 
             if (Pi == Pi_old).all():
-                print('    Pi converged in {} iterations'.format(j))
+                print('    Pi stabilized in {} iterations'.format(j))
                 break
+
     print('V^*: ', V)
     print('Pi^* ', Pi)
     return lambda state: Pi[state]
@@ -95,7 +88,7 @@ def valueIter(env, p_mat, r_mat, gamma, max_iter=50):
 
     # TODO
     for i in range(max_iter):
-        print('Episode {}'.format(i))
+        print('Episode {}'.format(i), end='')
 
         for j in range(100):
             delta = []
@@ -107,7 +100,8 @@ def valueIter(env, p_mat, r_mat, gamma, max_iter=50):
                     sum_temp = 0
                     for state_next in range(state_space_n):
                         sum_temp += p_mat[state, action, state_next] * \
-                            (r_mat[state, action, state_next] + gamma * V[state_next])
+                            (r_mat[state, action, state_next] +
+                             gamma * V[state_next])
                     vs_temp.append(sum_temp)
                 V[state] = max(vs_temp)
                 delta.append(abs(v_old - V[state]))
