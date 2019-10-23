@@ -5,6 +5,7 @@ import multiprocessing
 from itertools import repeat
 import gym
 import numpy as np
+from matplotlib import pyplot as plt
 from sklearn.utils.extmath import cartesian
 from p1_policy import testPolicy
 
@@ -41,6 +42,7 @@ class QlearningPolicy(object):
         :param episode: int, current episode
         :return: int, action
         """
+        # TODO: find better way
         if np.random.rand() <= 1 - episode / 5000:
             # greedy
             return self.env.action_space.sample()
@@ -63,16 +65,19 @@ class QlearningPolicy(object):
         self.Q_table[state, action] += self.alpha * \
             (reward + self.gamma * np.max(Q_next) - Q_current)
 
-    def trainPolicy(self, max_episode=5000, verbose=False):
+    def trainPolicy(self, max_episode=5000, verbose=False, disable_success_rate=False):
         """
         Train policy
 
         :param max_episode: int (>0), training episode, defaults to 5000
         :param verbose: bool, flag to print more infomation and render final state
-        :return: a lambda policy function, take state as input and output action
+        :param disable_success_rate: bool, flag to disable recording success rate
+        :returns: a lambda policy function, take state as input and output action
+                  a list of success rate at an interval of 100 episodes
         """
         assert isinstance(max_episode, int) and max_episode > 0
 
+        success_rate = []
         for i in range(max_episode):
             state = self.env.reset()
             done = False
@@ -85,9 +90,16 @@ class QlearningPolicy(object):
                 state = state_next
                 steps += 1
 
-        if verbose:
-            print('Episode {} finished in {} steps'.format(i, steps))
-        return lambda state: np.argmax(self.Q_table[state, :])
+            # eval policy
+            if not disable_success_rate:
+                if i % 100 == 0:
+                    success_rate.append(testPolicy(
+                        self.env, lambda state: np.argmax(self.Q_table[state, :])))
+
+            if verbose:
+                print('Episode {} finished in {} steps'.format(i, steps))
+
+        return lambda state: np.argmax(self.Q_table[state, :]), success_rate
 
 
 def build_search_grid(**kwargs):
@@ -144,9 +156,10 @@ def eval_policy(sample, env):
     """
     alpha, gamma = sample[0], sample[1]
     qlearn = QlearningPolicy(env, alpha=alpha, gamma=gamma)
-    policy = qlearn.trainPolicy()
+    policy, _ = qlearn.trainPolicy(disable_success_rate=True)
     success_rate = testPolicy(env, policy, trials=100, verbose=False)
-    print('alpha: {}, gamma: {}, success rate: {}'.format(alpha, gamma, success_rate))
+    print('alpha: {}, gamma: {}, success rate: {}'.format(
+        alpha, gamma, success_rate))
     return [alpha, gamma, success_rate]
 
 
@@ -157,42 +170,53 @@ if __name__ == '__main__':
     # Q 2.1(a)
     print('\n===== Question 2.1(a) =====\n')
     gamma = 0.99
-    for alpha in [0.05, 0.1, 0.25, 0.5]:
+    plt.figure(figsize=(20, 10))
+    for i, alpha in enumerate([0.05, 0.1, 0.25, 0.5]):
         print('alpha: {}, gamma: {}'.format(alpha, gamma))
         qlearn = QlearningPolicy(env, alpha=alpha, gamma=gamma)
-        policy = qlearn.trainPolicy()
+        policy, success_rate = qlearn.trainPolicy()
         testPolicy(env, policy, trials=100, verbose=True)
+        # plot
+        plt.subplot(2, 2, i+1)
+        plt.plot(success_rate)
+        plt.title(
+            'Q Learning Success Rate (alpha = {}, gamma = {})'.format(alpha, gamma))
+        plt.xlabel('Episode')
+        plt.ylabel('Success rate')
+    plt.savefig('Question 21a.png')
+    plt.draw()
+    plt.waitforbuttonpress(timeout=2)
+    plt.close()
 
     # Q 2.1(b)
     print('\n===== Question 2.1(b) =====\n')
     alpha = 0.05
-    for gamma in [0.9, 0.95, 0.99]:
+    plt.figure(figsize=(20, 10))
+    for i, gamma in enumerate([0.9, 0.95, 0.99]):
         print('alpha: {}, gamma: {}'.format(alpha, gamma))
         qlearn = QlearningPolicy(env, alpha=alpha, gamma=gamma)
-        policy = qlearn.trainPolicy()
+        policy, success_rate = qlearn.trainPolicy()
         testPolicy(env, policy, trials=100, verbose=True)
+        # plot
+        plt.subplot(2, 2, i+1)
+        plt.plot(success_rate)
+        plt.title(
+            'Q Learning Success Rate (alpha = {}, gamma = {})'.format(alpha, gamma))
+        plt.xlabel('Episode')
+        plt.ylabel('Success rate')
+    plt.savefig('Question 21b.png')
+    plt.draw()
+    plt.waitforbuttonpress(timeout=2)
+    plt.close()
 
     # Q 2.2
     print('\n===== Question 2.2 =====\n')
+    # TODO: find new eps greedy
     # grid search
     search_grid = build_search_grid(alpha_limit=[0.05, 0.5], alpha_num=10,
                                     gamma_limit=[0.8, 0.95], gamma_num=10,
                                     random=False)
-    # grid_search_res = {}
-    # grid_total_length = search_grid.shape[0]
-    # for i in range(grid_total_length):
-    #     [alpha, gamma] = search_grid[i]
-    #     print('[{}/{}] Testing alpha: {}, gamma: {}'.format(i + 1,
-    #                                                         grid_total_length, alpha, gamma))
-    #     qlearn = QlearningPolicy(env, alpha=alpha, gamma=gamma)
-    #     policy = qlearn.trainPolicy()
-    #     success_rate = testPolicy(env, policy, trials=100, verbose=False)
-    #     grid_search_res[(alpha, gamma)] = success_rate
 
-    # sorted_grid_search_res = sorted(
-    #     grid_search_res.items(), key=lambda x: x[1], reverse=True)
-    # print('Best result: [alpha: {}, gamma: {}, success rate: {}]'.format(
-    #     sorted_grid_search_res[0][0][0], sorted_grid_search_res[0][0][1], sorted_grid_search_res[0][1]))
     with multiprocessing.Pool() as pool:
         grid_search_res = pool.starmap(
             eval_policy, zip(search_grid, repeat(env)))
@@ -200,4 +224,3 @@ if __name__ == '__main__':
         grid_search_res, key=lambda x: x[-1], reverse=True)
     print('Best result: [alpha: {}, gamma: {}, success rate: {}]'.format(
         sorted_grid_search_res[0][0], sorted_grid_search_res[0][1], sorted_grid_search_res[0][2]))
-

@@ -16,6 +16,7 @@ def toyPolicy(state):
     """
     return (state + 1) % 4
 
+
 def learnModel(samples=int(1e5)):
     """
     Learn model, get transition probabilities and reward function
@@ -57,13 +58,29 @@ def learnModel(samples=int(1e5)):
     # normalize
     for i in range(trans_prob_mat.shape[0]):
         for j in range(trans_prob_mat.shape[1]):
-            norm_temp = np.linalg.norm(trans_prob_mat[i,j,:], ord=1)
+            norm_temp = np.linalg.norm(trans_prob_mat[i, j, :], ord=1)
             if norm_temp != 0:
-                trans_prob_mat[i,j,:] /= norm_temp
+                trans_prob_mat[i, j, :] /= norm_temp
 
-    counter_mat[counter_mat==0] = 1 # avoid singular
+    counter_mat[counter_mat == 0] = 1  # avoid singular
     reward_func_mat /= counter_mat
     return trans_prob_mat, reward_func_mat
+
+
+def plotHelper(success_rate, title):
+    """
+    Plots for Question 1
+    :param success_rate: array-like, a list of success rate
+    :param title: str, plot title
+    """
+    assert isinstance(title, str)
+    plt.figure()
+    plt.plot(success_rate)
+    plt.title(title)
+    plt.xlabel('Episode')
+    plt.ylabel('Success rate')
+    plt.savefig(title.replace('.', '').strip())
+    plt.show()
 
 
 if __name__ == '__main__':
@@ -83,27 +100,17 @@ if __name__ == '__main__':
     # Question 1.5
     print('\n===== Question 1.5 =====\n')
     print('Policy Iteration')
-    pi_policy, pi_success_rate = policyEval(env, p_mat, r_mat, gamma=0.99, max_iter=50)
+    pi_policy, pi_success_rate = policyEval(
+        env, p_mat, r_mat, gamma=0.99, max_iter=50)
     testPolicy(env, pi_policy, verbose=True)
     # plot
-    plt.figure()
-    plt.plot(pi_success_rate)
-    plt.title('Question 1.5 Policy Iteration')
-    plt.xlabel('Episode')
-    plt.ylabel('Success rate')
-    plt.show()
+    plotHelper(pi_success_rate, title='Question 1.5 Policy Iteration')
 
     # Question 1.6
     print('\n===== Question 1.6 =====\n')
     print('Value Iteration')
-    vi_policy, vi_success_rate = valueIter(env, p_mat, r_mat, gamma=0.99, max_iter=50)
+    vi_policy, vi_success_rate = valueIter(
+        env, p_mat, r_mat, gamma=0.99, max_iter=50)
     testPolicy(env, vi_policy, verbose=True)
     # plot
-    plt.figure()
-    plt.plot(pi_success_rate)
-    plt.title('Question 1.6 Value Iteration')
-    plt.xlabel('Episode')
-    plt.ylabel('Success rate')
-    plt.show()
-
-    # TODO: savefig
+    plotHelper(vi_success_rate, title='Question 1.6 Value Iteration')

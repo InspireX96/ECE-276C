@@ -67,6 +67,7 @@ def policyEval(env, p_mat, r_mat, gamma, max_iter=50):
 
     print('V^*: ', V)
     print('Pi^* ', Pi)
+    print('success rate: ', success_rate)
     return lambda state: Pi[state], success_rate
 
 
@@ -94,29 +95,21 @@ def valueIter(env, p_mat, r_mat, gamma, max_iter=50):
     Pi = np.zeros(state_space_n, dtype=int)
     success_rate = []
 
-    # TODO
     for i in range(max_iter):
-        print('Episode {}'.format(i), end='')
+        print('Episode {}'.format(i))
 
-        for j in range(100):
-            delta = []
-            for state in range(state_space_n):
-                v_old = V[state]
+        for state in range(state_space_n):
+            v_old = V[state]
 
-                vs_temp = []
-                for action in range(action_space_n):
-                    sum_temp = 0
-                    for state_next in range(state_space_n):
-                        sum_temp += p_mat[state, action, state_next] * \
-                            (r_mat[state, action, state_next] +
-                             gamma * V[state_next])
-                    vs_temp.append(sum_temp)
-                V[state] = max(vs_temp)
-                delta.append(abs(v_old - V[state]))
-
-            if max(delta) < 1e-3:
-                print('    V converged in {} iterations'.format(j))
-                break
+            vs_temp = []
+            for action in range(action_space_n):
+                sum_temp = 0
+                for state_next in range(state_space_n):
+                    sum_temp += p_mat[state, action, state_next] * \
+                        (r_mat[state, action, state_next] +
+                            gamma * V[state_next])
+                vs_temp.append(sum_temp)
+            V[state] = max(vs_temp)
 
         # policy recovery
         for state in range(state_space_n):
@@ -135,6 +128,7 @@ def valueIter(env, p_mat, r_mat, gamma, max_iter=50):
 
     print('V^*: ', V)
     print('Pi^* ', Pi)
+    print('success rate: ', success_rate)
     return lambda state: Pi[state], success_rate
 
 
