@@ -2,6 +2,26 @@
 
 Mingwei Xu A53270271
 
+## Run the codes
+
+Run code for question 1
+
+```bash
+python p1_main.py
+```
+
+Run code for question 2
+
+```bash
+python p2_main.py
+```
+
+A utility script to grid search for best *alpha* and *gamma* in question 2:
+
+```bash
+python p2_grid_search.py
+```
+
 ## Note for env
 
 ```

@@ -77,7 +77,7 @@ def plotHelper(success_rate, title):
     plt.figure()
     plt.plot(success_rate)
     plt.title(title)
-    plt.xlabel('Episode * 100')
+    plt.xlabel('Episode')
     plt.ylabel('Success rate')
     plt.savefig(title.replace('.', '').strip())
     plt.draw()
