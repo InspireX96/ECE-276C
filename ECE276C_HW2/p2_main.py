@@ -1,12 +1,10 @@
 """
 ECE 276C HW2 Question 2
 """
-import multiprocessing
-from itertools import repeat
+import time
 import gym
 import numpy as np
 from matplotlib import pyplot as plt
-from sklearn.utils.extmath import cartesian
 from p1_policy import testPolicy
 
 
@@ -15,24 +13,35 @@ class QlearningPolicy(object):
     Train and test Q-learning policy
     """
 
-    def __init__(self, env, alpha, gamma):
+    def __init__(self, env, alpha, gamma, sigma=0.6, delta=0.25):
         """
         :param env: object, gym environment
         :param alpha: float, learning rate
         :param gamma: float (0~1), discount factor
+        :param sigma: float, for adaptive epsilon greedy only, inverse sensitivity (0~1)
+        :param delta: float, for adaptive epsilon greedy only, influence parameter
         """
         assert 0 < gamma <= 1
         self.env = env
         self.alpha = alpha
         self.gamma = gamma
 
+        self.sigma = sigma
+        self.delta = delta
+
         # get state and action space
         self.state_space_n = env.observation_space.n
         self.action_space_n = env.action_space.n
 
         # init Q function
-        self.Q_table = np.zeros((
+        # self.Q_table = np.zeros((
+        #     self.state_space_n, self.action_space_n))
+        self.Q_table = np.random.random((
             self.state_space_n, self.action_space_n))
+
+        # record
+        self.success_rate = []
+        self.eps_list = []
 
     def _takeAction(self, state, episode):
         """
@@ -42,12 +51,45 @@ class QlearningPolicy(object):
         :param episode: int, current episode
         :return: int, action
         """
-        # TODO: find better way
-        if np.random.rand() <= 1 - episode / 5000:
+        epsilon = 1 - episode / 5000
+        self.eps_list.append(epsilon)
+        if np.random.rand() <= epsilon:
             # greedy
             return self.env.action_space.sample()
         # not greedy
         return np.argmax(self.Q_table[state, :])
+
+    def _takeActionAdaptive(self, state, epsilon):
+        """
+        Take action with adaptive epsilon-greedy
+
+        :param state: int, current state
+        :param epsilon: float, epsilon
+        :return: int, action
+        """
+        self.eps_list.append(epsilon)
+        if np.random.rand() <= epsilon:
+            # greedy
+            return self.env.action_space.sample()
+        # not greedy
+        return np.argmax(self.Q_table[state, :])
+
+    def _calculateEpsilonVDBE(self, epsilon, state, state_next, action):
+        """
+        Calculate epsilon value using VDBE, from paper:
+        https://link.springer.com/content/pdf/10.1007%2F978-3-642-16111-7_23.pdf
+
+        :param epsilon: float, epsilon
+        :param state: int, state
+        :param state_next: int, next state
+        :param action: int, action
+        :return: float, next epsilon
+        """
+        Q_current = self.Q_table[state, action]
+        Q_next = self.Q_table[state_next, action]
+        f = (1 - np.exp(-abs(Q_next - Q_current) / self.sigma)) / \
+            (1 + np.exp(-abs(Q_next - Q_current) / self.sigma))
+        return self.delta * f + (1 - self.delta) * epsilon
 
     def updateQ(self, state, state_next, action, reward):
         """
@@ -65,26 +107,37 @@ class QlearningPolicy(object):
         self.Q_table[state, action] += self.alpha * \
             (reward + self.gamma * np.max(Q_next) - Q_current)
 
-    def trainPolicy(self, max_episode=5000, verbose=False, disable_success_rate=False):
+    def trainPolicy(self, max_episode=5000, verbose=False, disable_success_rate=False, adaptive_greedy=False):
         """
         Train policy
 
         :param max_episode: int (>0), training episode, defaults to 5000
         :param verbose: bool, flag to print more infomation and render final state
         :param disable_success_rate: bool, flag to disable recording success rate
+        :param adaptive_greedy: bool, flag to turn on adaptive epsilon greedy
         :returns: a lambda policy function, take state as input and output action
-                  a list of success rate at an interval of 100 episodes
         """
         assert isinstance(max_episode, int) and max_episode > 0
+        if adaptive_greedy:
+            eps_adaptive = 1
 
-        success_rate = []
         for i in range(max_episode):
             state = self.env.reset()
             done = False
             steps = 0
             while not done:
-                action = self._takeAction(state=state, episode=i)
+                # take action
+                if adaptive_greedy:
+                    action = self._takeActionAdaptive(
+                        state=state, epsilon=eps_adaptive)
+                else:
+                    action = self._takeAction(state=state, episode=i)
+                # step
                 state_next, reward, done, _ = self.env.step(action)
+                # update
+                if adaptive_greedy:
+                    eps_adaptive = self._calculateEpsilonVDBE(
+                        epsilon=eps_adaptive, state=state, state_next=state_next, action=action)
                 self.updateQ(state=state, state_next=state_next,
                              action=action, reward=reward)
                 state = state_next
@@ -93,74 +146,35 @@ class QlearningPolicy(object):
             # eval policy
             if not disable_success_rate:
                 if i % 100 == 0:
-                    success_rate.append(testPolicy(
-                        self.env, lambda state: np.argmax(self.Q_table[state, :])))
+                    self.success_rate.append(testPolicy(
+                        lambda state: np.argmax(self.Q_table[state, :])))
 
             if verbose:
                 print('Episode {} finished in {} steps'.format(i, steps))
 
-        return lambda state: np.argmax(self.Q_table[state, :]), success_rate
+        return lambda state: np.argmax(self.Q_table[state, :])
 
 
-def build_search_grid(**kwargs):
+def eval_policy(sample, env, adaptive_greedy=False):
     """
-    Build search grid of alpha and gamma
-
-    :param alpha_limit: array-like (len=2), lower and upper limit of alpha
-    :param alpha_num: int, number of alpha samples
-    :param gamma_list: array-like (len=2), lower and upper limit of gamma
-    :param gamma_num: int, number of gamma samples
-    :param use_random: bool, flag to use random sampling
-    :return: M x N np ndarray, search grid, first column is alpha and second column is gamma
-    """
-    # parse kwargs
-    alpha_limit, alpha_num = kwargs.get(
-        'alpha_limit', []),  kwargs.get('alpha_num', None)
-    if not alpha_limit:
-        raise ValueError('alpha limit not defined!')
-    if not alpha_num:
-        raise ValueError('alpha num not defined!')
-    gamma_limit, gamma_num = kwargs.get(
-        'gamma_limit', []), kwargs.get('gamma_num', None)
-    if not gamma_limit:
-        raise ValueError('gamma limit not defined!')
-    if not gamma_num:
-        raise ValueError('gamma num not defind!')
-    use_random = kwargs.get('random', False)
-    print('Building grid with: {}'.format(kwargs))
-
-    # random sample
-    if use_random:
-        print('Building grid using random sampling')
-        alpha_list = min(alpha_limit) + (max(alpha_limit) -
-                                         min(alpha_limit)) * np.random.rand(alpha_num)
-        gamma_list = min(gamma_limit) + (max(gamma_limit) -
-                                         min(gamma_limit)) * np.random.rand(gamma_num)
-
-    else:
-        print('Building grid using linspace')
-        # linspace
-        alpha_list = np.linspace(min(alpha_limit), max(alpha_limit), alpha_num)
-        gamma_list = np.linspace(min(gamma_limit), max(gamma_limit), gamma_num)
-
-    return cartesian((alpha_list, gamma_list))
-
-
-def eval_policy(sample, env):
-    """
-    Eval policies using multiprocess
+    Eval policies
 
     :param sample: array-like (len=2), [alpha, gamma]
     :param env: object, gym environment
-    :return: list, [alpha, gamma, success_rate]
+    :param adaptive_greedy: bool, flag to turn on adaptive epsilon greedy
+    :return: success_rate_train(list), eps_list(list), success_rate_test
     """
+    env.reset()
     alpha, gamma = sample[0], sample[1]
     qlearn = QlearningPolicy(env, alpha=alpha, gamma=gamma)
-    policy, _ = qlearn.trainPolicy(disable_success_rate=True)
-    success_rate = testPolicy(env, policy, trials=100, verbose=False)
+    policy = qlearn.trainPolicy(
+        disable_success_rate=False, adaptive_greedy=adaptive_greedy)
+    success_rate_train = qlearn.success_rate
+    success_rate_test = testPolicy(policy, trials=100, verbose=False)
+    eps_list = qlearn.eps_list
     print('alpha: {}, gamma: {}, success rate: {}'.format(
-        alpha, gamma, success_rate))
-    return [alpha, gamma, success_rate]
+        alpha, gamma, success_rate_test))
+    return success_rate_train, eps_list, success_rate_test
 
 
 if __name__ == '__main__':
@@ -172,20 +186,18 @@ if __name__ == '__main__':
     gamma = 0.99
     plt.figure(figsize=(20, 10))
     for i, alpha in enumerate([0.05, 0.1, 0.25, 0.5]):
-        print('alpha: {}, gamma: {}'.format(alpha, gamma))
-        qlearn = QlearningPolicy(env, alpha=alpha, gamma=gamma)
-        policy, success_rate = qlearn.trainPolicy()
-        testPolicy(env, policy, trials=100, verbose=True)
+        [success_rate_train, _, _] = eval_policy((alpha, gamma), env)
+        time.sleep(0.1)
         # plot
         plt.subplot(2, 2, i+1)
-        plt.plot(success_rate)
+        plt.plot(success_rate_train)
         plt.title(
             'Q Learning Success Rate (alpha = {}, gamma = {})'.format(alpha, gamma))
-        plt.xlabel('Episode')
+        plt.xlabel('Episode * 100')
         plt.ylabel('Success rate')
     plt.savefig('Question 21a.png')
     plt.draw()
-    plt.waitforbuttonpress(timeout=2)
+    plt.waitforbuttonpress(timeout=5)
     plt.close()
 
     # Q 2.1(b)
@@ -193,34 +205,62 @@ if __name__ == '__main__':
     alpha = 0.05
     plt.figure(figsize=(20, 10))
     for i, gamma in enumerate([0.9, 0.95, 0.99]):
-        print('alpha: {}, gamma: {}'.format(alpha, gamma))
-        qlearn = QlearningPolicy(env, alpha=alpha, gamma=gamma)
-        policy, success_rate = qlearn.trainPolicy()
-        testPolicy(env, policy, trials=100, verbose=True)
+        # print('alpha: {}, gamma: {}'.format(alpha, gamma))
+        [success_rate_train, _, _] = eval_policy((alpha, gamma), env)
+        time.sleep(0.1)
         # plot
         plt.subplot(2, 2, i+1)
-        plt.plot(success_rate)
+        plt.plot(success_rate_train)
         plt.title(
             'Q Learning Success Rate (alpha = {}, gamma = {})'.format(alpha, gamma))
-        plt.xlabel('Episode')
+        plt.xlabel('Episode * 100')
         plt.ylabel('Success rate')
     plt.savefig('Question 21b.png')
     plt.draw()
-    plt.waitforbuttonpress(timeout=2)
+    plt.waitforbuttonpress(timeout=5)
     plt.close()
 
     # Q 2.2
     print('\n===== Question 2.2 =====\n')
-    # TODO: find new eps greedy
-    # grid search
-    search_grid = build_search_grid(alpha_limit=[0.05, 0.5], alpha_num=10,
-                                    gamma_limit=[0.8, 0.95], gamma_num=10,
-                                    random=False)
+    # best parameters from p2_gridsearch.py
+    alpha = 0.1
+    gamma = 0.99
 
-    with multiprocessing.Pool() as pool:
-        grid_search_res = pool.starmap(
-            eval_policy, zip(search_grid, repeat(env)))
-    sorted_grid_search_res = sorted(
-        grid_search_res, key=lambda x: x[-1], reverse=True)
-    print('Best result: [alpha: {}, gamma: {}, success rate: {}]'.format(
-        sorted_grid_search_res[0][0], sorted_grid_search_res[0][1], sorted_grid_search_res[0][2]))
+    # compare
+    # without adaptive epsilon greedy
+    plt.figure(figsize=(20, 10))
+    print('Not using adaptive epsilon greedy')
+    [success_rate_train, eps_list, _] = eval_policy(
+        (alpha, gamma), env, adaptive_greedy=False)
+    plt.subplot(1, 2, 1)
+    plt.plot(success_rate_train)
+    plt.title(
+            'Q Learning Success Rate\nWithout Adaptive Epsilon Greedy(alpha = {}, gamma = {})'.format(alpha, gamma))
+    plt.xlabel('Episode * 100')
+    plt.ylabel('Success rate')
+    plt.subplot(1, 2, 2)
+    plt.plot(eps_list)
+    plt.ylabel('Epsilon')
+    plt.savefig('Question 22a.png')
+    plt.draw()
+    plt.waitforbuttonpress(timeout=5)
+    plt.close()
+
+    # with epsilon greedy
+    plt.figure(figsize=(20, 10))
+    print('Using adaptive epsilon greedy')
+    [success_rate_train, eps_list, _] = eval_policy(
+        (alpha, gamma), env, adaptive_greedy=True)
+    plt.subplot(1, 2, 1)
+    plt.plot(success_rate_train)
+    plt.title(
+            'Q Learning Success Rate\nWith Adaptive Epsilon Greedy(alpha = {}, gamma = {})'.format(alpha, gamma))
+    plt.xlabel('Episode * 100')
+    plt.ylabel('Success rate')
+    plt.subplot(1, 2, 2)
+    plt.plot(eps_list)
+    plt.ylabel('Epsilon')
+    plt.savefig('Question 22b.png')
+    plt.draw()
+    plt.waitforbuttonpress(timeout=5)
+    plt.close()

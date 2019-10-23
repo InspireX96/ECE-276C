@@ -3,7 +3,7 @@ ECE 276C HW2 Question 1 PI and VI
 """
 from copy import deepcopy
 import numpy as np
-# from p1_main import testPolicy
+import gym
 
 
 def policyEval(env, p_mat, r_mat, gamma, max_iter=50):
@@ -63,7 +63,7 @@ def policyEval(env, p_mat, r_mat, gamma, max_iter=50):
                 break
 
         # eval
-        success_rate.append(testPolicy(env, lambda state: Pi[state]))
+        success_rate.append(testPolicy(lambda state: Pi[state]))
 
     print('V^*: ', V)
     print('Pi^* ', Pi)
@@ -124,7 +124,7 @@ def valueIter(env, p_mat, r_mat, gamma, max_iter=50):
             Pi[state] = np.argmax(pis_temp)
 
         # eval
-        success_rate.append(testPolicy(env, lambda state: Pi[state]))
+        success_rate.append(testPolicy(lambda state: Pi[state]))
 
     print('V^*: ', V)
     print('Pi^* ', Pi)
@@ -132,12 +132,11 @@ def valueIter(env, p_mat, r_mat, gamma, max_iter=50):
     return lambda state: Pi[state], success_rate
 
 
-def testPolicy(env, policy, trials=100, verbose=False):
+def testPolicy(policy, trials=100, verbose=False):
     """
     Test policy, return averate rate of successful episodes
     over 100 trials.
 
-    :param env: object, gym environment
     :param policy: function, a deterministic policy that takes state as input,
                              output action in (0, 1, 2, 3, 4)
     :param trials: int (>0), number of trials to test policy, defaults to 100
@@ -146,6 +145,8 @@ def testPolicy(env, policy, trials=100, verbose=False):
     """
     assert isinstance(trials, int) and trials > 0
     success = 0
+    env = gym.make('FrozenLake-v0')
+    env.reset()
 
     for _ in range(trials):
         state = env.reset()     # reset env

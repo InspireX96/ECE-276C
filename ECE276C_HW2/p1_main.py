@@ -77,10 +77,12 @@ def plotHelper(success_rate, title):
     plt.figure()
     plt.plot(success_rate)
     plt.title(title)
-    plt.xlabel('Episode')
+    plt.xlabel('Episode * 100')
     plt.ylabel('Success rate')
     plt.savefig(title.replace('.', '').strip())
-    plt.show()
+    plt.draw()
+    plt.waitforbuttonpress(timeout=2)
+    plt.close()
 
 
 if __name__ == '__main__':
@@ -90,7 +92,7 @@ if __name__ == '__main__':
     # Question 1.3
     print('\n===== Question 1.3 =====\n')
     print('toy policy')
-    testPolicy(env, toyPolicy, verbose=True)
+    testPolicy(toyPolicy, verbose=True)
 
     # Question 1.4
     p_mat, r_mat = learnModel()
@@ -102,7 +104,7 @@ if __name__ == '__main__':
     print('Policy Iteration')
     pi_policy, pi_success_rate = policyEval(
         env, p_mat, r_mat, gamma=0.99, max_iter=50)
-    testPolicy(env, pi_policy, verbose=True)
+    testPolicy(pi_policy, verbose=True)
     # plot
     plotHelper(pi_success_rate, title='Question 1.5 Policy Iteration')
 
@@ -111,6 +113,6 @@ if __name__ == '__main__':
     print('Value Iteration')
     vi_policy, vi_success_rate = valueIter(
         env, p_mat, r_mat, gamma=0.99, max_iter=50)
-    testPolicy(env, vi_policy, verbose=True)
+    testPolicy(vi_policy, verbose=True)
     # plot
     plotHelper(vi_success_rate, title='Question 1.6 Value Iteration')
