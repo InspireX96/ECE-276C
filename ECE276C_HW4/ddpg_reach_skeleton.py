@@ -199,7 +199,11 @@ class DDPG():
         self.optimizer_critic = optim.Adam(self.critic.parameters(), lr=critic_lr)
 
         # TODO: define a replay buffer
-        self.ReplayBuffer = None
+        self.ReplayBuffer = Replay(buffer_size=5000,
+                                   init_length=100,
+                                   state_dim=state_dim,
+                                   action_dim=action_dim,
+                                   env=env
 
     # TODO: Complete the function
     def update_target_networks(self):
