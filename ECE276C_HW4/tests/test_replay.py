@@ -6,10 +6,6 @@ Please use pytest to run this script automatically
 import sys
 import numpy as np
 
-import gym
-import pybullet
-import pybulletgym.envs
-
 sys.path.append('../')
 from ddpg_reach_skeleton import Replay
 
