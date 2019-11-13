@@ -1,5 +1,6 @@
 """ Learn a policy using DDPG for the reach task"""
 import random
+import time
 import copy
 from collections import deque
 import numpy as np
@@ -72,7 +73,7 @@ class Replay():
                        'action': action,
                        'reward': reward,
                        'state_next': state_next,
-                       'done': False}
+                       'done': done}
                 if step == 150:
                     exp['done'] = False      # NOTE: 150 is not done
                 self.buffer_add(exp)
@@ -127,10 +128,10 @@ class Actor(nn.Module):
         hidden_size_2 = 300
 
         self.fc1 = nn.Linear(self.state_dim, hidden_size_1)
-        self.ln1 = nn.LayerNorm(hidden_size_1)
+        # self.ln1 = nn.LayerNorm(hidden_size_1)
 
         self.fc2 = nn.Linear(hidden_size_1, hidden_size_2)
-        self.ln2 = nn.LayerNorm(hidden_size_2)
+        # self.ln2 = nn.LayerNorm(hidden_size_2)
 
         self.fc3 = nn.Linear(hidden_size_2, self.action_dim)
 
@@ -152,11 +153,11 @@ class Actor(nn.Module):
         else:
             x = state
         x = self.fc1(x)
-        x = self.ln1(x)
+        # x = self.ln1(x)
         x = F.relu(x)
 
         x = self.fc2(x)
-        x = self.ln2(x)
+        # x = self.ln2(x)
         x = F.relu(x)
 
         x = self.fc3(x)
@@ -184,10 +185,10 @@ class Critic(nn.Module):
         hidden_size_2 = 300
 
         self.fc1 = nn.Linear(self.state_dim, hidden_size_1)
-        self.ln1 = nn.LayerNorm(hidden_size_1)
+        # self.ln1 = nn.LayerNorm(hidden_size_1)
 
         self.fc2 = nn.Linear(hidden_size_1 + self.action_dim, hidden_size_2)
-        self.ln2 = nn.LayerNorm(hidden_size_2)
+        # self.ln2 = nn.LayerNorm(hidden_size_2)
 
         self.fc3 = nn.Linear(hidden_size_2, 1)
 
@@ -210,7 +211,7 @@ class Critic(nn.Module):
         else:
             x = state
         x = self.fc1(x)
-        x = self.ln1(x)
+        # x = self.ln1(x)
         x = F.relu(x)
 
         if isinstance(action, np.ndarray):
@@ -219,7 +220,7 @@ class Critic(nn.Module):
             y = action
         x = torch.cat((x, y), 1)
         x = self.fc2(x)
-        x = self.ln2(x)
+        # x = self.ln2(x)
         x = F.relu(x)
 
         x = self.fc3(x)
@@ -330,7 +331,7 @@ class DDPG():
             state_next_batch, action_next_batch)
 
         target_Q = reward_batch + \
-            (self.gamma * done_batch * target_Q)
+            (self.gamma * done_batch * target_Q)    #TODO
 
         current_Q = self.critic.forward(state_batch, action_batch)
 
@@ -360,6 +361,7 @@ class DDPG():
         :returns: list, value loss, policy loss over steps
                   and average rewards over each 1000 steps
         """
+        time_start = time.time()
         # init
         value_loss_list = []
         policy_loss_list = []
@@ -397,6 +399,7 @@ class DDPG():
 
             # update network
             value_loss, policy_loss = self.update_network(batch)
+
             value_loss_list.append(value_loss)
             policy_loss_list.append(policy_loss)
             reward_list.append(reward)
@@ -408,6 +411,7 @@ class DDPG():
                 print('step [{}/{}] ({:.1f} %), value_loss: {}, policy_loss: {}, average reward: {}'
                       .format(i, num_steps, i / num_steps * 100, value_loss, policy_loss, average_reward))
 
+        print('Training time: {} (sec)'.format(time.time() - time_start))
         return value_loss_list, policy_loss_list, average_reward_list
 
 
@@ -454,6 +458,6 @@ if __name__ == "__main__":
         time.sleep(0.1)
         state = next_state
         step += 1
-        print('Step: {}, reward: {}'.format(step, r))
+        print('Step: {}, action: {}, reward: {}'.format(step, action, r))
 
     # TODO: plot average return across steps (200000), subsample using 1000 steps to compare it with last HW
