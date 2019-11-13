@@ -1,6 +1,6 @@
 """ Learn a policy using DDPG for the reach task"""
 import random
-
+import copy
 from collections import deque
 import numpy as np
 import torch
@@ -253,12 +253,12 @@ class DDPG():
 
         # Create a actor and actor_target
         self.actor = Actor(state_dim, action_dim)
-        self.actor_target = Actor(state_dim, action_dim)
+        self.actor_target = copy.deepcopy(self.actor)
         # Make sure that both networks have the same initial weights
 
         # Create a critic and critic_target object
         self.critic = Critic(state_dim, action_dim)
-        self.critic_target = Critic(state_dim, action_dim)
+        self.critic_target = copy.deepcopy(self.critic)
         # Make sure that both networks have the same initial weights
 
         # Define the optimizer for the actor
@@ -341,7 +341,8 @@ class DDPG():
         self.optimizer_critic.step()
 
         self.optimizer_actor.zero_grad()
-        policy_loss = - self.critic(state_batch, self.actor(state_batch)).mean()
+        policy_loss = - self.critic(state_batch,
+                                    self.actor(state_batch)).mean()
         policy_loss.backward()
         self.optimizer_actor.step()
 
@@ -379,7 +380,7 @@ class DDPG():
                    'action': action,
                    'reward': reward,
                    'state_next': state_next,
-                   'done': False}
+                   'done': done}
             if traj_step == 150:
                 exp['done'] = False      # NOTE: 150 is not done
             self.ReplayBuffer.buffer_add(exp)
@@ -405,7 +406,7 @@ class DDPG():
                 reward_list = []
                 average_reward_list.append(average_reward)
                 print('step [{}/{}] ({:.1f} %), value_loss: {}, policy_loss: {}, average reward: {}'
-                    .format(i, num_steps, i / num_steps * 100, value_loss, policy_loss, average_reward))
+                      .format(i, num_steps, i / num_steps * 100, value_loss, policy_loss, average_reward))
 
         return value_loss_list, policy_loss_list, average_reward_list
 
