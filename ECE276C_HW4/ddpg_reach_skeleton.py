@@ -326,24 +326,22 @@ class DDPG():
 
         # predict next action and value
         action_next_batch = self.actor_target.forward(state_next_batch)
-        value_next_batch = self.critic_target.forward(
+        target_Q = self.critic_target.forward(
             state_next_batch, action_next_batch)
 
-        expected_state_action_batch = reward_batch + \
-            (self.gamma * done_batch * value_next_batch)
+        target_Q = reward_batch + \
+            (self.gamma * done_batch * target_Q)
 
-        state_action_batch = self.critic.forward(state_batch, action_batch)
+        current_Q = self.critic.forward(state_batch, action_batch)
 
         # backward
         self.optimizer_critic.zero_grad()
-        value_loss = F.mse_loss(
-            state_action_batch, expected_state_action_batch)
+        value_loss = F.mse_loss(current_Q, target_Q)
         value_loss.backward()
-        self.optimizer_actor.step()
+        self.optimizer_critic.step()
 
         self.optimizer_actor.zero_grad()
-        policy_loss = -self.critic(state_batch, self.actor(state_batch))
-        policy_loss = policy_loss.mean()
+        policy_loss = - self.critic(state_batch, self.actor(state_batch)).mean()
         policy_loss.backward()
         self.optimizer_actor.step()
 
@@ -406,7 +404,7 @@ class DDPG():
                 average_reward = np.mean(reward_list)
                 reward_list = []
                 average_reward_list.append(average_reward)
-                print('step [{}/{}] ({} %), value_loss: {}, policy_loss: {}, average reward: {}'
+                print('step [{}/{}] ({:.1f} %), value_loss: {}, policy_loss: {}, average reward: {}'
                     .format(i, num_steps, i / num_steps * 100, value_loss, policy_loss, average_reward))
 
         return value_loss_list, policy_loss_list, average_reward_list
@@ -426,7 +424,7 @@ if __name__ == "__main__":
         batch_size=100,
     )
     # Train the policy
-    value_loss_list, policy_loss_list, reward_list = ddpg_object.train(2000)
+    value_loss_list, policy_loss_list, reward_list = ddpg_object.train(50000)
 
     # plot loss
     plt.figure()
