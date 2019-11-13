@@ -8,6 +8,7 @@ import time
 import torch.nn as nn
 import torch.nn.functional as F
 from torch import optim
+from torch.autograd import Variable
 
 import gym
 import pybullet
@@ -18,12 +19,14 @@ import matplotlib.pyplot as plt
 np.random.seed(1000)
 
 
-# TODO: A function to soft update target networks
+# A function to soft update target networks
 def weighSync(target_model, source_model, tau=0.001):
-    raise NotImplementedError
+    for target_param, param in zip(target_model.parameters(), source_model.parameters()):
+        target_param.data.copy_(
+            target_param.data * (1.0 - tau) + param.data * tau)
 
 
-# TODO: Write the ReplayBuffer
+# Write the ReplayBuffer
 class Replay():
     """
     Replay buffer
@@ -33,11 +36,11 @@ class Replay():
         """
         A function to initialize the replay buffer.
 
-        param: buffer_size: Size of replay buffer
-        param: init_length : Initial number of transitions to collect
-        param: state_dim : Size of the state space
-        param: action_dim : Size of the action space
-        param: env : gym environment object
+        :param: buffer_size: Size of replay buffer
+        :param: init_length : Initial number of transitions to collect
+        :param: state_dim : Size of the state space
+        :param: action_dim : Size of the action space
+        :param: env : gym environment object
         """
         self.buffer_size = buffer_size  # max size of buffer
         self.init_length = init_length  # initialize buffer using random action
@@ -64,14 +67,16 @@ class Replay():
                 action = self.env.action_space.sample()     # sample random action
                 state_next, reward, done, _ = self.env.step(action)
                 step += 1
-                if step == 150:
-                    done = False    # NOTE: 150 is not done
 
-                self.buffer_add({'state': state,
-                                 'action': action,
-                                 'reward': reward,
-                                 'state_next': state_next,
-                                 'done': done})
+                exp = {'state': state,
+                       'action': action,
+                       'reward': reward,
+                       'state_next': state_next,
+                       'done': False}
+                if step == 150:
+                    exp['done'] = False      # NOTE: 150 is not done
+                self.buffer_add(exp)
+
                 state = state_next
                 i += 1
 
@@ -82,7 +87,8 @@ class Replay():
     def buffer_add(self, exp):
         """
         A function to add a dictionary to the buffer
-        param: exp : A dictionary consisting of state, action, reward , next state and done flag
+
+        :param: exp : A dictionary consisting of state, action, reward , next state and done flag
         """
         # buffer is not full
         self._buffer.append(exp)
@@ -94,7 +100,8 @@ class Replay():
     def buffer_sample(self, N):
         """
         A function to sample N points from the buffer
-        param: N : Number of samples to obtain from the buffer
+
+        :param: N : Number of samples to obtain from the buffer
         """
         return random.sample(self._buffer, N)
 
@@ -106,43 +113,54 @@ class Actor(nn.Module):
 
     def __init__(self, state_dim, action_dim):
         """
-        Initialize the network
-        param: state_dim : Size of the state space
-        param: action_dim: Size of the action space
+        Initialize the actor network
+
+        :param: state_dim : Size of the state space
+        :param: action_dim: Size of the action space
         """
         super(Actor, self).__init__()
         self.state_dim = state_dim
         self.action_dim = action_dim
 
         # define network layers
-        self.fc1 = nn.Linear(self.state_dim, 128)
-        self.ln1 = nn.LayerNorm(128)
+        hidden_size_1 = 400
+        hidden_size_2 = 300
 
-        self.fc2 = nn.Linear(128, 64)
-        self.ln2 = nn.LayerNorm(64)
+        self.fc1 = nn.Linear(self.state_dim, hidden_size_1)
+        self.ln1 = nn.LayerNorm(hidden_size_1)
 
-        self.fc3 = nn.Linear(64, action)
-        # TODO: define network as paper
+        self.fc2 = nn.Linear(hidden_size_1, hidden_size_2)
+        self.ln2 = nn.LayerNorm(hidden_size_2)
+
+        self.fc3 = nn.Linear(hidden_size_2, self.action_dim)
 
         # init weights
-        self.fc1.weight.data.normal_(0, 0.1)
-        self.fc2.weight.data.normal_(0, 0.1)
-        self.fc3.weight.data.normal_(0, 0.1)
+        self.fc1.weight.data.uniform_(-1/np.sqrt(self.state_dim),
+                                      1/np.sqrt(self.state_dim))
+        self.fc1.weight.data.uniform_(-1/np.sqrt(hidden_size_1),
+                                      1/np.sqrt(hidden_size_1))
+        self.fc3.weight.data.uniform_(-3e-3, 3e-3)
 
     def forward(self, state):
         """
         Define the forward pass
+
         param: state: The state of the environment
         """
-        x = state
+        if isinstance(state, np.ndarray):
+            x = torch.FloatTensor(state)
+        else:
+            x = state
         x = self.fc1(x)
         x = self.ln1(x)
         x = F.relu(x)
+
         x = self.fc2(x)
         x = self.ln2(x)
         x = F.relu(x)
+
         x = self.fc3(x)
-        return F.tanh(x)
+        return torch.tanh(x)
 
 
 class Critic(nn.Module):
@@ -152,44 +170,60 @@ class Critic(nn.Module):
 
     def __init__(self, state_dim, action_dim):
         """
-        Initialize the critic
-        param: state_dim : Size of the state space
-        param: action_dim : Size of the action space
+        Initialize the critic network
+
+        :param: state_dim : Size of the state space
+        :param: action_dim : Size of the action space
         """
         super(Critic, self).__init__()
         self.state_dim = state_dim
         self.action_dim = action_dim
 
         # define network layers
-        self.fc_state = nn.Linear(self.state_dim, 64)
-        self.ln_state = nn.LayerNorm(64)
+        hidden_size_1 = 400
+        hidden_size_2 = 300
 
-        self.fc_action = nn.Linear(self.action_dim, 64)
-        self.ln_action = nn.LayerNorm(64)
+        self.fc1 = nn.Linear(self.state_dim, hidden_size_1)
+        self.ln1 = nn.LayerNorm(hidden_size_1)
 
-        self.fc_out = nn.Linear(64, 1)
+        self.fc2 = nn.Linear(hidden_size_1 + self.action_dim, hidden_size_2)
+        self.ln2 = nn.LayerNorm(hidden_size_2)
 
-        # TODO: define network as paper
+        self.fc3 = nn.Linear(hidden_size_2, 1)
 
         # init weights
-        self.fc_state.weight.data.normal_(0, 0.1)
-        self.fc_action.weight.data.normal_(0, 0.1)
-        self.fc_out.weight.data.normal_(0, 0.1)
+        self.fc1.weight.data.uniform_(-1/np.sqrt(self.state_dim),
+                                      1/np.sqrt(self.state_dim))
+        self.fc2.weight.data.uniform_(-1/np.sqrt(hidden_size_1 + self.action_dim),
+                                      1/np.sqrt(hidden_size_1 + self.action_dim))
+        self.fc3.weight.data.uniform_(-3e-3, 3e-3)
 
     def forward(self, state, action):
         """
         Define the forward pass of the critic
+
+        :param state: The state of the environment
+        :param action: action
         """
-        x = state
-        x = self.fc_state(x)
-        x = self.ln_state(x)
+        if isinstance(state, np.ndarray):
+            x = torch.FloatTensor(state)
+        else:
+            x = state
+        x = self.fc1(x)
+        x = self.ln1(x)
+        x = F.relu(x)
 
-        y = action
-        y = self.fc_action(y)
-        y = self.ln_action(y)
+        if isinstance(action, np.ndarray):
+            y = torch.FloatTensor(action)
+        else:
+            y = action
+        x = torch.cat((x, y), 1)
+        x = self.fc2(x)
+        x = self.ln2(x)
+        x = F.relu(x)
 
-        out = F.relu(x + y)
-        return self.fc_out(out)
+        x = self.fc3(x)
+        return x
 
 
 # TODO: Implement a DDPG class
@@ -197,21 +231,21 @@ class DDPG():
     def __init__(
             self,
             env,
-            action_dim,
             state_dim,
+            action_dim,
             critic_lr=3e-4,
             actor_lr=3e-4,
             gamma=0.99,
             batch_size=100,
     ):
         """
-        param: env: An gym environment
-        param: action_dim: Size of action space
-        param: state_dim: Size of state space
-        param: critic_lr: Learning rate of the critic
-        param: actor_lr: Learning rate of the actor
-        param: gamma: The discount factor
-        param: batch_size: The batch size for training
+        :param: env: An gym environment
+        :param: state_dim: Size of state space
+        :param: action_dim: Size of action space
+        :param: critic_lr: Learning rate of the critic
+        :param: actor_lr: Learning rate of the actor
+        :param: gamma: The discount factor
+        :param: batch_size: The batch size for training
         """
         self.gamma = gamma
         self.batch_size = batch_size
@@ -233,12 +267,26 @@ class DDPG():
         self.optimizer_critic = optim.Adam(
             self.critic.parameters(), lr=critic_lr)
 
-        # TODO: define a replay buffer
+        # define a replay buffer
         self.ReplayBuffer = Replay(buffer_size=10000,
                                    init_length=1000,
                                    state_dim=state_dim,
                                    action_dim=action_dim,
                                    env=env)
+
+    def select_action_with_noise(self, state):
+        """
+        Select action with exploration noise
+        Returned action will be clipped to [-1, 1]
+
+        :param state: The state of the environment
+        :return: np array, action with Gaussian noise
+        """
+        action_mean = self.actor(state).detach().numpy()
+        noise = np.random.multivariate_normal(
+            mean=[0, 0], cov=np.diag([0.1, 0.1]))
+        action = action_mean + noise
+        return np.clip(action, -1, 1)
 
     # TODO: Complete the function
     def update_target_networks(self):
@@ -249,28 +297,126 @@ class DDPG():
         weighSync(self.critic_target, self.critic)
 
     # TODO: Complete the function
-    def update_network(self):
+    def update_network(self, batch):
         """
         A function to update the function just once
+
+        :param batch: list, minibatch samples
+        :returns: float, value and policy loss
         """
-        raise NotImplementedError
+        # parse batch
+        batch_size = len(batch)
+        state_batch = []
+        action_batch = []
+        reward_batch = []
+        state_next_batch = []
+        done_batch = []
+        for exp in batch:
+            state_batch.append(torch.FloatTensor(exp['state']))
+            action_batch.append(torch.FloatTensor(exp['action']))
+            reward_batch.append(torch.FloatTensor([exp['reward']]))
+            state_next_batch.append(torch.FloatTensor(exp['state_next']))
+            done_batch.append(torch.FloatTensor([exp['done']]))
+
+        state_batch = torch.cat(state_batch).reshape(batch_size, -1)
+        action_batch = torch.cat(action_batch).reshape(batch_size, -1)
+        reward_batch = torch.cat(reward_batch).reshape(batch_size, -1)
+        state_next_batch = torch.cat(state_next_batch).reshape(batch_size, -1)
+        done_batch = torch.cat(done_batch).reshape(batch_size, -1)
+
+        # predict next action and value
+        action_next_batch = self.actor_target.forward(state_next_batch)
+        value_next_batch = self.critic_target.forward(
+            state_next_batch, action_next_batch)
+
+        expected_state_action_batch = reward_batch + \
+            (self.gamma * done_batch * value_next_batch)
+
+        state_action_batch = self.critic.forward(state_batch, action_batch)
+
+        # backward
+        self.optimizer_critic.zero_grad()
+        value_loss = F.mse_loss(
+            state_action_batch, expected_state_action_batch)
+        value_loss.backward()
+        self.optimizer_actor.step()
+
+        self.optimizer_actor.zero_grad()
+        policy_loss = -self.critic(state_batch, self.actor(state_batch))
+        policy_loss = policy_loss.mean()
+        policy_loss.backward()
+        self.optimizer_actor.step()
+
+        # soft update
+        self.update_target_networks()
+
+        return value_loss.item(), policy_loss.item()
 
     # TODO: Complete the function
     def train(self, num_steps):
         """
         Train the policy for the given number of iterations
-        :param num_steps:The number of steps to train the policy for
+
+        :param num_steps: The number of steps to train the policy for
+        :returns: list, value loss, policy loss over steps
+                  and average rewards over each 1000 steps
         """
-        raise NotImplementedError
-        # NOTE: 150 is not done
-        # NOTE: add noise to action using multivariable Gaussian and clip it between -1 to 1
+        # init
+        value_loss_list = []
+        policy_loss_list = []
+        reward_list = []
+        average_reward_list = []
+
+        traj_step = 1
+        state = self.env.reset()
+
+        for i in range(num_steps):
+            # NOTE: add noise to action using multivariable Gaussian and clip it between -1 to 1
+            action = self.select_action_with_noise(state)
+            state_next, reward, done, _ = self.env.step(action)     # step
+            traj_step += 1
+
+            # store transition in R
+            exp = {'state': state,
+                   'action': action,
+                   'reward': reward,
+                   'state_next': state_next,
+                   'done': False}
+            if traj_step == 150:
+                exp['done'] = False      # NOTE: 150 is not done
+            self.ReplayBuffer.buffer_add(exp)
+
+            # move on
+            state = state_next
+
+            if done:
+                traj_step = 1
+                state = self.env.reset()
+
+            # sample minibatch
+            batch = self.ReplayBuffer.buffer_sample(self.batch_size)
+
+            # update network
+            value_loss, policy_loss = self.update_network(batch)
+            value_loss_list.append(value_loss)
+            policy_loss_list.append(policy_loss)
+            reward_list.append(reward)
+
+            if i % 1000 == 0:
+                average_reward = np.mean(reward_list)
+                reward_list = []
+                average_reward_list.append(average_reward)
+                print('step [{}/{}] ({} %), value_loss: {}, policy_loss: {}, average reward: {}'
+                    .format(i, num_steps, i / num_steps * 100, value_loss, policy_loss, average_reward))
+
+        return value_loss_list, policy_loss_list, average_reward_list
 
 
 if __name__ == "__main__":
     # Define the environment
-    env=gym.make("modified_gym_env:ReacherPyBulletEnv-v1", rand_init=False)
+    env = gym.make("modified_gym_env:ReacherPyBulletEnv-v1", rand_init=False)
 
-    ddpg_object=DDPG(
+    ddpg_object = DDPG(
         env,
         8,
         2,
@@ -280,16 +426,35 @@ if __name__ == "__main__":
         batch_size=100,
     )
     # Train the policy
-    ddpg_object.train(100)
+    value_loss_list, policy_loss_list, reward_list = ddpg_object.train(2000)
+
+    # plot loss
+    plt.figure()
+    plt.plot(value_loss_list)
+    plt.plot(policy_loss_list)
+    plt.xlabel('steps')
+    plt.legend(['value loss', 'policy loss'])
+    plt.show()
+
+    # plot reward
+    plt.figure()
+    plt.plot(reward_list)
+    plt.xlabel('x1000 steps')
+    plt.ylabel('rewards')
+    plt.show()
 
     # Evaluate the final policy
-    state=env.reset()
-    done=False
+    print('\n*** Evaluating Policy ***\n')
+    state = env.reset()
+    step = 0
+    done = False
     while not done:
-        action=ddpg_object.actor(state).detach().squeeze().numpy()
-        next_state, r, done, _=env.step(action)
-        env.render()
+        action = ddpg_object.actor(state).detach().squeeze().numpy()
+        next_state, r, done, _ = env.step(action)
+        # env.render()
         time.sleep(0.1)
-        state=next_state
+        state = next_state
+        step += 1
+        print('Step: {}, reward: {}'.format(step, r))
 
     # TODO: plot average return across steps (200000), subsample using 1000 steps to compare it with last HW
