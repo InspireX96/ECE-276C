@@ -28,6 +28,7 @@ class Replay():
     """
     Replay buffer
     """
+
     def __init__(self, buffer_size, init_length, state_dim, action_dim, env):
         """
         A function to initialize the replay buffer.
@@ -38,15 +39,46 @@ class Replay():
         param: action_dim : Size of the action space
         param: env : gym environment object
         """
-        self.buffer_size = buffer_size
-        self.init_length = init_length  # TODO: what is this
+        self.buffer_size = buffer_size  # max size of buffer
+        self.init_length = init_length  # initialize buffer using random action
         self.state_dim = state_dim
         self.action_dim = action_dim
         self.env = env
 
         self._buffer = deque()  # replay buffer
 
-    # TODO: Complete the function
+        if self.env is not None:    # init replay buffer
+            self._init_buffer()
+
+    def _init_buffer(self):
+        """
+        Initialize buffer using random actions
+        """
+        i = 0
+        break_flag = False
+        while not break_flag:
+            done = False
+            state = self.env.reset()
+            step = 1
+            while not done:
+                action = self.env.action_space.sample()     # sample random action
+                state_next, reward, done, _ = self.env.step(action)
+                step += 1
+                if step == 150:
+                    done = False    # NOTE: 150 is not done
+
+                self.buffer_add({'state': state,
+                                 'action': action,
+                                 'reward': reward,
+                                 'state_next': state_next,
+                                 'done': done})
+                state = state_next
+                i += 1
+
+                if i >= self.init_length:
+                    break_flag = True
+                    break
+
     def buffer_add(self, exp):
         """
         A function to add a dictionary to the buffer
@@ -59,7 +91,6 @@ class Replay():
         if len(self._buffer) > self.buffer_size:
             self._buffer.popleft()
 
-    # TODO: Complete the function
     def buffer_sample(self, N):
         """
         A function to sample N points from the buffer
@@ -70,7 +101,7 @@ class Replay():
 
 class Actor(nn.Module):
     """
-     Actor Network
+    Actor Network
     """
 
     def __init__(self, state_dim, action_dim):
@@ -91,6 +122,7 @@ class Actor(nn.Module):
         self.ln2 = nn.LayerNorm(64)
 
         self.fc3 = nn.Linear(64, action)
+        # TODO: define network as paper
 
         # init weights
         self.fc1.weight.data.normal_(0, 0.1)
@@ -136,6 +168,8 @@ class Critic(nn.Module):
         self.ln_action = nn.LayerNorm(64)
 
         self.fc_out = nn.Linear(64, 1)
+
+        # TODO: define network as paper
 
         # init weights
         self.fc_state.weight.data.normal_(0, 0.1)
@@ -196,14 +230,15 @@ class DDPG():
         # Define the optimizer for the actor
         self.optimizer_actor = optim.Adam(self.actor.parameters(), lr=actor_lr)
         # Define the optimizer for the critic
-        self.optimizer_critic = optim.Adam(self.critic.parameters(), lr=critic_lr)
+        self.optimizer_critic = optim.Adam(
+            self.critic.parameters(), lr=critic_lr)
 
         # TODO: define a replay buffer
-        self.ReplayBuffer = Replay(buffer_size=5000,
-                                   init_length=100,
+        self.ReplayBuffer = Replay(buffer_size=10000,
+                                   init_length=1000,
                                    state_dim=state_dim,
                                    action_dim=action_dim,
-                                   env=env
+                                   env=env)
 
     # TODO: Complete the function
     def update_target_networks(self):
@@ -227,13 +262,15 @@ class DDPG():
         :param num_steps:The number of steps to train the policy for
         """
         raise NotImplementedError
+        # NOTE: 150 is not done
+        # NOTE: add noise to action using multivariable Gaussian and clip it between -1 to 1
 
 
 if __name__ == "__main__":
     # Define the environment
-    env = gym.make("modified_gym_env:ReacherPyBulletEnv-v1", rand_init=False)
+    env=gym.make("modified_gym_env:ReacherPyBulletEnv-v1", rand_init=False)
 
-    ddpg_object = DDPG(
+    ddpg_object=DDPG(
         env,
         8,
         2,
@@ -246,11 +283,13 @@ if __name__ == "__main__":
     ddpg_object.train(100)
 
     # Evaluate the final policy
-    state = env.reset()
-    done = False
+    state=env.reset()
+    done=False
     while not done:
-        action = ddpg_object.actor(state).detach().squeeze().numpy()
-        next_state, r, done, _ = env.step(action)
+        action=ddpg_object.actor(state).detach().squeeze().numpy()
+        next_state, r, done, _=env.step(action)
         env.render()
         time.sleep(0.1)
-        state = next_state
+        state=next_state
+
+    # TODO: plot average return across steps (200000), subsample using 1000 steps to compare it with last HW

@@ -6,8 +6,14 @@ Please use pytest to run this script automatically
 import sys
 import numpy as np
 
+import gym
+import pybullet
+import pybulletgym.envs
+
 sys.path.append('../')
+
 from ddpg_reach_skeleton import Replay
+
 
 def test_buffer_add():
     """
@@ -30,11 +36,11 @@ def test_buffer_add():
         state_next, reward, done = i, i, False
 
         # test buffer add using toy example
-        exp = {'state': state, 
-                'action': action,
-                'reward': reward, 
-                'state_next': state_next,
-                'done': done}
+        exp = {'state': state,
+               'action': action,
+               'reward': reward,
+               'state_next': state_next,
+               'done': done}
         replay_buffer.buffer_add(exp)
 
         state = state_next
@@ -43,7 +49,7 @@ def test_buffer_add():
         assert replay_buffer._buffer[-1] == exp
 
     print('items in buffer: ', replay_buffer._buffer)
-    
+
     # test overflow
     state = 999
     for i in range(3):
@@ -51,11 +57,11 @@ def test_buffer_add():
         state_next, reward, done = i * buffer_size, i * buffer_size, True
 
         # test buffer add
-        exp = {'state': state, 
-                'action': action,
-                'reward': reward, 
-                'state_next': state_next,
-                'done': done}
+        exp = {'state': state,
+               'action': action,
+               'reward': reward,
+               'state_next': state_next,
+               'done': done}
         replay_buffer.buffer_add(exp)
 
         state = state_next
@@ -87,11 +93,11 @@ def test_buffer_sample():
         state_next, reward, done = i, i, False
 
         # test buffer add using toy example
-        exp = {'state': state, 
-                'action': action,
-                'reward': reward, 
-                'state_next': state_next,
-                'done': done}
+        exp = {'state': state,
+               'action': action,
+               'reward': reward,
+               'state_next': state_next,
+               'done': done}
         replay_buffer.buffer_add(exp)
 
         state = state_next
@@ -105,9 +111,29 @@ def test_buffer_sample():
         assert len(result) == i
 
 
+def test_buffer_init():
+    """
+    Test buffer initialization
+    """
+    print('\n===== Testing buffer initialization =====\n')
+    # init params
+    buffer_size = 5000
+    init_length = 500
+
+    env = gym.make("modified_gym_env:ReacherPyBulletEnv-v1", rand_init=False)
+
+    replay_buffer = Replay(buffer_size=buffer_size,
+                           init_length=init_length,
+                           state_dim=8,
+                           action_dim=2,
+                           env=env)
+    print('buffer length: ', len(replay_buffer._buffer))
+    assert len(replay_buffer._buffer) == init_length
+
+
 if __name__ == '__main__':
     print('Testing replay buffer')
     test_buffer_add()
     test_buffer_sample()
+    test_buffer_init()
     print('All tests passed')
-
