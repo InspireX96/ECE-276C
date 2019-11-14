@@ -21,3 +21,7 @@ python ddpg_reach.py --test
 ```
 
 It will load `ddpg_actor.pkl` and test it in randomly initialized environment.
+
+## Tests
+
+To test the codes, do `cd tests/` and run `pytest`
