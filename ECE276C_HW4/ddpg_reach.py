@@ -260,6 +260,7 @@ class DDPG():
         self.gamma = gamma
         self.batch_size = batch_size
         self.env = env
+        self.test_env = copy.deepcopy(env)  # environment for evaluation only
 
         # Create a actor and actor_target
         self.actor = Actor(state_dim, action_dim).to(device)
@@ -435,11 +436,10 @@ class DDPG():
         :returns: int, steps
                   float, average reward collected during test
         """
-        test_env = copy.deepcopy(self.env)
-        state = test_env.reset()
+        state = self.test_env.reset()
 
         if render:
-            test_env.render()
+            self.test_env.render()
             time.sleep(3)   # time for preparing screenshot
         
         step = 0
@@ -447,7 +447,7 @@ class DDPG():
         done = False
         while not done:
             action = self.actor(torch.FloatTensor(state).to(device)).cpu().detach().squeeze().numpy()
-            next_state, r, done, _ = test_env.step(action)
+            next_state, r, done, _ = self.test_env.step(action)
             state = next_state
             step += 1
             average_reward += r
