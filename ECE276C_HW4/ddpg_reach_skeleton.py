@@ -21,6 +21,13 @@ import matplotlib.pyplot as plt
 
 np.random.seed(1000)    # TODO: change random seed
 
+# setup device
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print('Using device :', device)
+
+if device.type == 'cuda':
+    print(torch.cuda.get_device_name(0))
+
 
 # A function to soft update target networks
 def weighSync(target_model, source_model, tau=0.001):
@@ -255,12 +262,12 @@ class DDPG():
         self.env = env
 
         # Create a actor and actor_target
-        self.actor = Actor(state_dim, action_dim)
+        self.actor = Actor(state_dim, action_dim).to(device)
         self.actor_target = copy.deepcopy(self.actor)
         # Make sure that both networks have the same initial weights
 
         # Create a critic and critic_target object
-        self.critic = Critic(state_dim, action_dim)
+        self.critic = Critic(state_dim, action_dim).to(device)
         self.critic_target = copy.deepcopy(self.critic)
         # Make sure that both networks have the same initial weights
 
@@ -285,7 +292,8 @@ class DDPG():
         :param state: The state of the environment
         :return: np array, action with Gaussian noise
         """
-        action_mean = self.actor(state).detach().numpy()
+        action_mean = self.actor(torch.FloatTensor(
+            state).to(device)).cpu().detach().numpy()
         noise = np.random.multivariate_normal(
             mean=[0, 0], cov=np.diag([0.1, 0.1]))
         action = action_mean + noise
@@ -319,11 +327,15 @@ class DDPG():
             state_next_batch.append(torch.FloatTensor(exp['state_next']))
             not_done_batch.append(torch.FloatTensor([not exp['done']]))
 
-        state_batch = torch.cat(state_batch).reshape(batch_size, -1)
-        action_batch = torch.cat(action_batch).reshape(batch_size, -1)
-        reward_batch = torch.cat(reward_batch).reshape(batch_size, -1)
-        state_next_batch = torch.cat(state_next_batch).reshape(batch_size, -1)
-        not_done_batch = torch.cat(not_done_batch).reshape(batch_size, -1)
+        state_batch = torch.cat(state_batch).reshape(batch_size, -1).to(device)
+        action_batch = torch.cat(action_batch).reshape(
+            batch_size, -1).to(device)
+        reward_batch = torch.cat(reward_batch).reshape(
+            batch_size, -1).to(device)
+        state_next_batch = torch.cat(state_next_batch).reshape(
+            batch_size, -1).to(device)
+        not_done_batch = torch.cat(not_done_batch).reshape(
+            batch_size, -1).to(device)
 
         # predict next action and value
         action_next_batch = self.actor_target.forward(state_next_batch)
@@ -331,7 +343,7 @@ class DDPG():
             state_next_batch, action_next_batch)
 
         target_Q = reward_batch + \
-            (self.gamma * not_done_batch * target_Q)  # TODO
+            (self.gamma * not_done_batch * target_Q)
 
         current_Q = self.critic.forward(state_batch, action_batch)
 
@@ -417,7 +429,12 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Define the environment
-    env = gym.make("modified_gym_env:ReacherPyBulletEnv-v1", rand_init=False)
+    if args.test:
+        rand_init = True    # random init when testing policy
+    else:
+        rand_init = False
+    print('\n*** Env rand init = {} ***\n'.format(rand_init))
+    env = gym.make("modified_gym_env:ReacherPyBulletEnv-v1", rand_init=rand_init)
 
     ddpg_object = DDPG(
         env,
@@ -431,7 +448,8 @@ if __name__ == "__main__":
 
     if not args.test:
         # Train the policy
-        value_loss_list, policy_loss_list, reward_list = ddpg_object.train(200000)
+        value_loss_list, policy_loss_list, reward_list = ddpg_object.train(
+            200000)
 
         # plot loss
         plt.figure()
@@ -468,7 +486,7 @@ if __name__ == "__main__":
             step = 0
             done = False
             while not done:
-                action = ddpg_object.actor(state).detach().squeeze().numpy()
+                action = ddpg_object.actor(torch.FloatTensor(state).to(device)).cpu().detach().squeeze().numpy()
                 next_state, r, done, _ = env.step(action)
                 # env.render()
                 time.sleep(0.1)
@@ -479,7 +497,3 @@ if __name__ == "__main__":
         except IOError as err:
             print('ERROR: cannot load policy. Please train first. ', err)
 
-        
-
-        # TODO: plot average return across steps (200000), subsample using 1000 steps to compare it with last HW
-        # TODO: use GPU
