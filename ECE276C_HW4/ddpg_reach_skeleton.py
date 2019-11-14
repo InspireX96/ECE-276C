@@ -3,6 +3,7 @@ import random
 import time
 import copy
 import pickle
+import argparse
 from collections import deque
 import numpy as np
 import torch
@@ -356,8 +357,7 @@ class DDPG():
         Train the policy for the given number of iterations
 
         :param num_steps: The number of steps to train the policy for
-        :returns: list, value loss, policy loss over steps
-                  and average rewards over each 1000 steps
+        :returns: list, value loss, policy loss and reward over steps
         """
         time_start = time.time()
         # init
@@ -403,17 +403,19 @@ class DDPG():
             reward_list.append(reward)
 
             if i % 1000 == 0:
-                average_reward = np.mean(reward_list)
-                reward_list = []
-                average_reward_list.append(average_reward)
                 print('step [{}/{}] ({:.1f} %), value_loss: {}, policy_loss: {}, average reward: {}'
-                      .format(i, num_steps, i / num_steps * 100, value_loss, policy_loss, average_reward))
+                      .format(i, num_steps, i / num_steps * 100, value_loss, policy_loss, np.mean(reward_list)))
 
         print('Training time: {} (sec)'.format(time.time() - time_start))
-        return value_loss_list, policy_loss_list, average_reward_list
+        return value_loss_list, policy_loss_list, reward_list
 
 
 if __name__ == "__main__":
+    # argparse
+    parser = argparse.ArgumentParser(description='DDPG train and test')
+    parser.add_argument('--test', action='store_true', help='test policy')
+    args = parser.parse_args()
+
     # Define the environment
     env = gym.make("modified_gym_env:ReacherPyBulletEnv-v1", rand_init=False)
 
@@ -426,41 +428,58 @@ if __name__ == "__main__":
         gamma=0.99,
         batch_size=100,
     )
-    # Train the policy
-    value_loss_list, policy_loss_list, reward_list = ddpg_object.train(200000)
 
-    # plot loss
-    plt.figure()
-    plt.plot(value_loss_list)
-    plt.plot(policy_loss_list)
-    plt.xlabel('steps')
-    plt.legend(['value loss', 'policy loss'])
-    plt.show()
+    if not args.test:
+        # Train the policy
+        value_loss_list, policy_loss_list, reward_list = ddpg_object.train(200000)
 
-    # plot reward
-    plt.figure()
-    plt.plot(reward_list)
-    plt.xlabel('x1000 steps')
-    plt.ylabel('rewards')
-    plt.show()
+        # plot loss
+        plt.figure()
+        plt.plot(value_loss_list)
+        plt.plot(policy_loss_list)
+        plt.xlabel('steps')
+        plt.legend(['value loss', 'policy loss'])
+        plt.show()
 
-    # save final actor network
-    with open('ddpg_actor.pkl', 'wb') as pickle_file:
-        pickle.dump(ddpg_object.actor, pickle_file)
+        # plot reward
+        plt.figure()
+        plt.plot(reward_list)
+        plt.xlabel('steps')
+        plt.ylabel('rewards')
+        plt.show()
 
-    # Evaluate the final policy
-    print('\n*** Evaluating Policy ***\n')
-    state = env.reset()
-    step = 0
-    done = False
-    while not done:
-        action = ddpg_object.actor(state).detach().squeeze().numpy()
-        next_state, r, done, _ = env.step(action)
-        # env.render()
-        time.sleep(0.1)
-        state = next_state
-        step += 1
-        print('Step: {}, action: {}, reward: {}'.format(step, action, r))
+        # save final actor network
+        with open('ddpg_actor.pkl', 'wb') as pickle_file:
+            pickle.dump(ddpg_object.actor, pickle_file)
+        np.save('ddpg_value_loss.npy', np.array(value_loss_list))
+        np.save('ddpg_policy_loss.npy', np.array(policy_loss_list))
+        np.save('ddpg_rewards.npy', np.array(reward_list))
 
-    # TODO: plot average return across steps (200000), subsample using 1000 steps to compare it with last HW
-    # TODO: use GPU
+    if args.test:
+        # Evaluate the final policy
+        print('\n*** Evaluating Policy ***\n')
+
+        # load policy
+        try:
+            with open('ddpg_actor.pkl', 'rb') as pickle_file:
+                ddpg_object.actor = pickle.load(pickle_file)
+
+            state = env.reset()
+            step = 0
+            done = False
+            while not done:
+                action = ddpg_object.actor(state).detach().squeeze().numpy()
+                next_state, r, done, _ = env.step(action)
+                # env.render()
+                time.sleep(0.1)
+                state = next_state
+                step += 1
+                print('Step: {}, action: {}, reward: {}'.format(step, action, r))
+
+        except IOError as err:
+            print('ERROR: cannot load policy. Please train first. ', err)
+
+        
+
+        # TODO: plot average return across steps (200000), subsample using 1000 steps to compare it with last HW
+        # TODO: use GPU
