@@ -356,7 +356,7 @@ class DDPG():
 
         self.optimizer_actor.zero_grad()
         actor_loss = - self.critic(state_batch,
-                                    self.actor(state_batch)).mean()
+                                   self.actor(state_batch)).mean()
         actor_loss.backward()
         self.optimizer_actor.step()
 
@@ -439,14 +439,15 @@ class DDPG():
         state = self.test_env.reset()
 
         if render:
-            self.test_env.render()
+            self.test_env.render()   # weird render bug, needs to render here
             time.sleep(3)   # time for preparing screenshot
-        
+
         step = 0
         average_reward = 0
         done = False
         while not done:
-            action = self.actor(torch.FloatTensor(state).to(device)).cpu().detach().squeeze().numpy()
+            action = self.actor(torch.FloatTensor(state).to(
+                device)).cpu().detach().squeeze().numpy()
             next_state, r, done, _ = self.test_env.step(action)
             state = next_state
             step += 1
@@ -455,9 +456,10 @@ class DDPG():
             if render:
                 time.sleep(0.1)
                 print('Step: {}, action: {}, reward: {}'.format(step, action, r))
-                
+
         average_reward /= step
         return step, average_reward
+
 
 if __name__ == "__main__":
     # argparse
@@ -471,10 +473,8 @@ if __name__ == "__main__":
     else:
         rand_init = False
     print('\n*** Env rand init = {} ***\n'.format(rand_init))
-    env = gym.make("modified_gym_env:ReacherPyBulletEnv-v1", rand_init=rand_init)
-    
-    if args.test:
-        env.render()    # weird render bug, needs to render here
+    env = gym.make("modified_gym_env:ReacherPyBulletEnv-v1",
+                   rand_init=rand_init)
 
     ddpg_object = DDPG(
         env,
@@ -534,11 +534,11 @@ if __name__ == "__main__":
         try:
             with open('ddpg_actor.pkl', 'rb') as pickle_file:
                 ddpg_object.actor = pickle.load(pickle_file)
-            
+
             # eval policy
             eval_step, eval_average_reward = ddpg_object.eval(render=True)
-            print('Eval result: step = {}, average reward = {}'.format(eval_step, eval_average_reward))
+            print('Eval result: step = {}, average reward = {}'.format(
+                eval_step, eval_average_reward))
 
         except IOError as err:
             print('ERROR: cannot load policy. Please train first. ', err)
-
