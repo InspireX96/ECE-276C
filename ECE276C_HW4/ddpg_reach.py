@@ -369,14 +369,17 @@ class DDPG():
         Train the policy for the given number of iterations
 
         :param num_steps: The number of steps to train the policy for
-        :returns: list, critic loss, actor loss and reward over steps
+        :returns: list, critic loss, actor loss over steps;
+                  step and average reward over each evaluation during training
         """
         time_start = time.time()
         # init
         critic_loss_list = []
         actor_loss_list = []
-        reward_list = []
-        average_reward_list = []
+
+        # placeholders for policy eval during training
+        eval_step_list = []
+        eval_average_reward_list = []
 
         traj_step = 1
         state = self.env.reset()
@@ -412,38 +415,49 @@ class DDPG():
 
             critic_loss_list.append(critic_loss)
             actor_loss_list.append(actor_loss)
-            reward_list.append(reward)
 
-            if i % 1000 == 0:
-                print('step [{}/{}] ({:.1f} %), critic_loss: {}, actor_loss: {}, average reward: {}'
-                      .format(i, num_steps, i / num_steps * 100, critic_loss, actor_loss, np.mean(reward_list)))
+            if i % 100 == 0:
+                # test policy
+                eval_step, eval_average_reward = self.eval()
+                eval_step_list.append(eval_step)
+                eval_average_reward_list.append(eval_average_reward)
+                print('step [{}/{}] ({:.1f} %), critic_loss = {}, actor_loss = {}; Eval result: step = {}, average reward = {}'
+                      .format(i, num_steps, i / num_steps * 100, critic_loss, actor_loss, eval_step, eval_average_reward))
 
         print('Training time: {} (sec)'.format(time.time() - time_start))
-        return critic_loss_list, actor_loss_list, reward_list
+        return critic_loss_list, actor_loss_list, eval_step_list, eval_average_reward_list
 
     def eval(self, render=False):
         """
         Evaluate the policy in a separate resetted environment
 
         :param render: bool, flag to turn on rendering, defaults to false
+        :returns: int, steps
+                  float, average reward collected during test
         """
         test_env = copy.deepcopy(self.env)
         state = test_env.reset()
+
         if render:
             test_env.render()
             time.sleep(3)   # time for preparing screenshot
+        
         step = 0
+        average_reward = 0
         done = False
         while not done:
             action = self.actor(torch.FloatTensor(state).to(device)).cpu().detach().squeeze().numpy()
             next_state, r, done, _ = test_env.step(action)
             state = next_state
             step += 1
+            average_reward += r
 
             if render:
                 time.sleep(0.1)
                 print('Step: {}, action: {}, reward: {}'.format(step, action, r))
-
+                
+        average_reward /= step
+        return step, average_reward
 
 if __name__ == "__main__":
     # argparse
@@ -474,7 +488,7 @@ if __name__ == "__main__":
 
     if not args.test:
         # Train the policy
-        critic_loss_list, actor_loss_list, reward_list = ddpg_object.train(
+        critic_loss_list, actor_loss_list, eval_step_list, eval_average_reward_list = ddpg_object.train(
             200000)
 
         # plot loss
@@ -492,20 +506,25 @@ if __name__ == "__main__":
         plt.savefig('Question_1-2.png')
         plt.show()
 
-        # plot reward
+        # plot eval step
         plt.figure()
-        plt.plot(reward_list)
-        plt.xlabel('steps')
-        plt.title('DDPG Rewards')
+        plt.plot(eval_step_list)
+        plt.xlabel('*100 steps')
+        plt.title('DDPG Evaluated Finish Steps')
         plt.savefig('Question_1-3.png')
+        plt.show()
+
+        # plot eval reward
+        plt.figure()
+        plt.plot(eval_average_reward_list)
+        plt.xlabel('*100 steps')
+        plt.title('DDPG Evaluated Average Rewards')
+        plt.savefig('Question_1-4.png')
         plt.show()
 
         # save final actor network
         with open('ddpg_actor.pkl', 'wb') as pickle_file:
             pickle.dump(ddpg_object.actor, pickle_file)
-        np.save('ddpg_critic_loss.npy', np.array(critic_loss_list))
-        np.save('ddpg_actor_loss.npy', np.array(actor_loss_list))
-        np.save('ddpg_rewards.npy', np.array(reward_list))
 
     if args.test:
         # Evaluate the final policy
@@ -515,18 +534,9 @@ if __name__ == "__main__":
         try:
             with open('ddpg_actor.pkl', 'rb') as pickle_file:
                 ddpg_object.actor = pickle.load(pickle_file)
+            
+            # eval policy
             ddpg_object.eval(render=True)
-            # state = env.reset()
-            # time.sleep(3)   # time for preparing screenshot
-            # step = 0
-            # done = False
-            # while not done:
-            #     action = ddpg_object.actor(torch.FloatTensor(state).to(device)).cpu().detach().squeeze().numpy()
-            #     next_state, r, done, _ = env.step(action)
-            #     time.sleep(0.1)
-            #     state = next_state
-            #     step += 1
-            #     print('Step: {}, action: {}, reward: {}'.format(step, action, r))
 
         except IOError as err:
             print('ERROR: cannot load policy. Please train first. ', err)
