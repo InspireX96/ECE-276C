@@ -494,6 +494,7 @@ if __name__ == "__main__":
                 ddpg_object.actor = pickle.load(pickle_file)
 
             state = env.reset()
+            time.sleep(3)   # time for preparing screenshot
             step = 0
             done = False
             while not done:
