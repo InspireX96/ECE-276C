@@ -349,32 +349,32 @@ class DDPG():
 
         # backward
         self.optimizer_critic.zero_grad()
-        value_loss = F.mse_loss(current_Q, target_Q)
-        value_loss.backward()
+        critic_loss = F.mse_loss(current_Q, target_Q)
+        critic_loss.backward()
         self.optimizer_critic.step()
 
         self.optimizer_actor.zero_grad()
-        policy_loss = - self.critic(state_batch,
+        actor_loss = - self.critic(state_batch,
                                     self.actor(state_batch)).mean()
-        policy_loss.backward()
+        actor_loss.backward()
         self.optimizer_actor.step()
 
         # soft update
         self.update_target_networks()
 
-        return value_loss.item(), policy_loss.item()
+        return critic_loss.item(), actor_loss.item()
 
     def train(self, num_steps):
         """
         Train the policy for the given number of iterations
 
         :param num_steps: The number of steps to train the policy for
-        :returns: list, value loss, policy loss and reward over steps
+        :returns: list, critic loss, actor loss and reward over steps
         """
         time_start = time.time()
         # init
-        value_loss_list = []
-        policy_loss_list = []
+        critic_loss_list = []
+        actor_loss_list = []
         reward_list = []
         average_reward_list = []
 
@@ -408,18 +408,18 @@ class DDPG():
             batch = self.ReplayBuffer.buffer_sample(self.batch_size)
 
             # update network
-            value_loss, policy_loss = self.update_network(batch)
+            critic_loss, actor_loss = self.update_network(batch)
 
-            value_loss_list.append(value_loss)
-            policy_loss_list.append(policy_loss)
+            critic_loss_list.append(critic_loss)
+            actor_loss_list.append(actor_loss)
             reward_list.append(reward)
 
             if i % 1000 == 0:
-                print('step [{}/{}] ({:.1f} %), value_loss: {}, policy_loss: {}, average reward: {}'
-                      .format(i, num_steps, i / num_steps * 100, value_loss, policy_loss, np.mean(reward_list)))
+                print('step [{}/{}] ({:.1f} %), critic_loss: {}, actor_loss: {}, average reward: {}'
+                      .format(i, num_steps, i / num_steps * 100, critic_loss, actor_loss, np.mean(reward_list)))
 
         print('Training time: {} (sec)'.format(time.time() - time_start))
-        return value_loss_list, policy_loss_list, reward_list
+        return critic_loss_list, actor_loss_list, reward_list
 
 
 if __name__ == "__main__":
@@ -435,6 +435,9 @@ if __name__ == "__main__":
         rand_init = False
     print('\n*** Env rand init = {} ***\n'.format(rand_init))
     env = gym.make("modified_gym_env:ReacherPyBulletEnv-v1", rand_init=rand_init)
+    
+    if args.test:
+        env.render()    # weird render bug, needs to render here
 
     ddpg_object = DDPG(
         env,
@@ -448,29 +451,37 @@ if __name__ == "__main__":
 
     if not args.test:
         # Train the policy
-        value_loss_list, policy_loss_list, reward_list = ddpg_object.train(
+        critic_loss_list, actor_loss_list, reward_list = ddpg_object.train(
             200000)
 
         # plot loss
         plt.figure()
-        plt.plot(value_loss_list)
-        plt.plot(policy_loss_list)
+        plt.plot(critic_loss_list)
         plt.xlabel('steps')
-        plt.legend(['value loss', 'policy loss'])
+        plt.title('DDPG Critic Loss')
+        plt.savefig('Question_1-1.png')
+        plt.show()
+
+        plt.figure()
+        plt.plot(actor_loss_list)
+        plt.xlabel('steps')
+        plt.title('DDPG Actor Loss')
+        plt.savefig('Question_1-2.png')
         plt.show()
 
         # plot reward
         plt.figure()
         plt.plot(reward_list)
         plt.xlabel('steps')
-        plt.ylabel('rewards')
+        plt.title('DDPG Rewards')
+        plt.savefig('Question_1-3.png')
         plt.show()
 
         # save final actor network
         with open('ddpg_actor.pkl', 'wb') as pickle_file:
             pickle.dump(ddpg_object.actor, pickle_file)
-        np.save('ddpg_value_loss.npy', np.array(value_loss_list))
-        np.save('ddpg_policy_loss.npy', np.array(policy_loss_list))
+        np.save('ddpg_critic_loss.npy', np.array(critic_loss_list))
+        np.save('ddpg_actor_loss.npy', np.array(actor_loss_list))
         np.save('ddpg_rewards.npy', np.array(reward_list))
 
     if args.test:
@@ -488,7 +499,6 @@ if __name__ == "__main__":
             while not done:
                 action = ddpg_object.actor(torch.FloatTensor(state).to(device)).cpu().detach().squeeze().numpy()
                 next_state, r, done, _ = env.step(action)
-                # env.render()
                 time.sleep(0.1)
                 state = next_state
                 step += 1
