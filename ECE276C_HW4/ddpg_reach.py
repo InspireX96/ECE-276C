@@ -422,7 +422,7 @@ class DDPG():
                 eval_step, eval_average_reward = self.eval()
                 eval_step_list.append(eval_step)
                 eval_average_reward_list.append(eval_average_reward)
-                print('step [{}/{}] ({:.1f} %), critic_loss = {}, actor_loss = {}; Eval result: step = {}, average reward = {}'
+                print('step [{}/{}] ({:.1f} %), critic_loss = {:.4f}, actor_loss = {:.4f}; Eval result: step = {}, average reward = {:.4f}'
                       .format(i, num_steps, i / num_steps * 100, critic_loss, actor_loss, eval_step, eval_average_reward))
 
         print('Training time: {} (sec)'.format(time.time() - time_start))
