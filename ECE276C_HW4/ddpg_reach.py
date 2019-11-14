@@ -421,6 +421,29 @@ class DDPG():
         print('Training time: {} (sec)'.format(time.time() - time_start))
         return critic_loss_list, actor_loss_list, reward_list
 
+    def eval(self, render=False):
+        """
+        Evaluate the policy in a separate resetted environment
+
+        :param render: bool, flag to turn on rendering, defaults to false
+        """
+        test_env = copy.deepcopy(self.env)
+        state = test_env.reset()
+        if render:
+            test_env.render()
+            time.sleep(3)   # time for preparing screenshot
+        step = 0
+        done = False
+        while not done:
+            action = self.actor(torch.FloatTensor(state).to(device)).cpu().detach().squeeze().numpy()
+            next_state, r, done, _ = test_env.step(action)
+            state = next_state
+            step += 1
+
+            if render:
+                time.sleep(0.1)
+                print('Step: {}, action: {}, reward: {}'.format(step, action, r))
+
 
 if __name__ == "__main__":
     # argparse
@@ -492,18 +515,18 @@ if __name__ == "__main__":
         try:
             with open('ddpg_actor.pkl', 'rb') as pickle_file:
                 ddpg_object.actor = pickle.load(pickle_file)
-
-            state = env.reset()
-            time.sleep(3)   # time for preparing screenshot
-            step = 0
-            done = False
-            while not done:
-                action = ddpg_object.actor(torch.FloatTensor(state).to(device)).cpu().detach().squeeze().numpy()
-                next_state, r, done, _ = env.step(action)
-                time.sleep(0.1)
-                state = next_state
-                step += 1
-                print('Step: {}, action: {}, reward: {}'.format(step, action, r))
+            ddpg_object.eval(render=True)
+            # state = env.reset()
+            # time.sleep(3)   # time for preparing screenshot
+            # step = 0
+            # done = False
+            # while not done:
+            #     action = ddpg_object.actor(torch.FloatTensor(state).to(device)).cpu().detach().squeeze().numpy()
+            #     next_state, r, done, _ = env.step(action)
+            #     time.sleep(0.1)
+            #     state = next_state
+            #     step += 1
+            #     print('Step: {}, action: {}, reward: {}'.format(step, action, r))
 
         except IOError as err:
             print('ERROR: cannot load policy. Please train first. ', err)
