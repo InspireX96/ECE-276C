@@ -26,4 +26,4 @@ if __name__ == '__main__':
 
 ## Tests
 
-To test the codes, do `cd tests/` and run '/pytest'
+To test the codes, do `cd tests/` and run `pytest`
