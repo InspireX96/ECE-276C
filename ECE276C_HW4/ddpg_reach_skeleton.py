@@ -2,6 +2,7 @@
 import random
 import time
 import copy
+import pickle
 from collections import deque
 import numpy as np
 import torch
@@ -17,7 +18,7 @@ import pybulletgym.envs
 
 import matplotlib.pyplot as plt
 
-np.random.seed(1000)
+np.random.seed(1000)    # TODO: change random seed
 
 
 # A function to soft update target networks
@@ -227,7 +228,7 @@ class Critic(nn.Module):
         return x
 
 
-# TODO: Implement a DDPG class
+# Implement a DDPG class
 class DDPG():
     def __init__(
             self,
@@ -289,7 +290,6 @@ class DDPG():
         action = action_mean + noise
         return np.clip(action, -1, 1)
 
-    # TODO: Complete the function
     def update_target_networks(self):
         """
         A function to update the target networks
@@ -297,7 +297,6 @@ class DDPG():
         weighSync(self.actor_target, self.actor)
         weighSync(self.critic_target, self.critic)
 
-    # TODO: Complete the function
     def update_network(self, batch):
         """
         A function to update the function just once
@@ -311,19 +310,19 @@ class DDPG():
         action_batch = []
         reward_batch = []
         state_next_batch = []
-        done_batch = []
+        not_done_batch = []
         for exp in batch:
             state_batch.append(torch.FloatTensor(exp['state']))
             action_batch.append(torch.FloatTensor(exp['action']))
             reward_batch.append(torch.FloatTensor([exp['reward']]))
             state_next_batch.append(torch.FloatTensor(exp['state_next']))
-            done_batch.append(torch.FloatTensor([exp['done']]))
+            not_done_batch.append(torch.FloatTensor([not exp['done']]))
 
         state_batch = torch.cat(state_batch).reshape(batch_size, -1)
         action_batch = torch.cat(action_batch).reshape(batch_size, -1)
         reward_batch = torch.cat(reward_batch).reshape(batch_size, -1)
         state_next_batch = torch.cat(state_next_batch).reshape(batch_size, -1)
-        done_batch = torch.cat(done_batch).reshape(batch_size, -1)
+        not_done_batch = torch.cat(not_done_batch).reshape(batch_size, -1)
 
         # predict next action and value
         action_next_batch = self.actor_target.forward(state_next_batch)
@@ -331,7 +330,7 @@ class DDPG():
             state_next_batch, action_next_batch)
 
         target_Q = reward_batch + \
-            (self.gamma * done_batch * target_Q)    #TODO
+            (self.gamma * not_done_batch * target_Q)  # TODO
 
         current_Q = self.critic.forward(state_batch, action_batch)
 
@@ -352,7 +351,6 @@ class DDPG():
 
         return value_loss.item(), policy_loss.item()
 
-    # TODO: Complete the function
     def train(self, num_steps):
         """
         Train the policy for the given number of iterations
@@ -429,7 +427,7 @@ if __name__ == "__main__":
         batch_size=100,
     )
     # Train the policy
-    value_loss_list, policy_loss_list, reward_list = ddpg_object.train(50000)
+    value_loss_list, policy_loss_list, reward_list = ddpg_object.train(200000)
 
     # plot loss
     plt.figure()
@@ -446,6 +444,10 @@ if __name__ == "__main__":
     plt.ylabel('rewards')
     plt.show()
 
+    # save final actor network
+    with open('ddpg_actor.pkl', 'wb') as pickle_file:
+        pickle.dump(ddpg_object.actor, pickle_file)
+
     # Evaluate the final policy
     print('\n*** Evaluating Policy ***\n')
     state = env.reset()
@@ -461,3 +463,4 @@ if __name__ == "__main__":
         print('Step: {}, action: {}, reward: {}'.format(step, action, r))
 
     # TODO: plot average return across steps (200000), subsample using 1000 steps to compare it with last HW
+    # TODO: use GPU
