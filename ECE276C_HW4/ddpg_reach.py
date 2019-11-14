@@ -436,11 +436,11 @@ class DDPG():
         :returns: int, steps
                   float, average reward collected during test
         """
-        state = self.test_env.reset()
-
         if render:
             self.test_env.render()   # weird render bug, needs to render here
             time.sleep(3)   # time for preparing screenshot
+
+        state = self.test_env.reset()
 
         step = 0
         average_reward = 0
