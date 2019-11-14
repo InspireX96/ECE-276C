@@ -536,7 +536,8 @@ if __name__ == "__main__":
                 ddpg_object.actor = pickle.load(pickle_file)
             
             # eval policy
-            ddpg_object.eval(render=True)
+            eval_step, eval_average_reward = ddpg_object.eval(render=True)
+            print('Eval result: step = {}, average reward = {}'.format(eval_step, eval_average_reward))
 
         except IOError as err:
             print('ERROR: cannot load policy. Please train first. ', err)
