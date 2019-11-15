@@ -40,8 +40,8 @@ class Critic(nn.Module):
         """
         Initialize the critic network
 
-        :param: state_dim : Size of the state space
-        :param: action_dim : Size of the action space
+        :param state_dim : Size of the state space
+        :param action_dim : Size of the action space
         """
         super(Critic, self).__init__()
         self.state_dim = state_dim
@@ -123,15 +123,17 @@ class TD3():
             actor_lr=3e-4,
             gamma=0.99,
             batch_size=100,
+            policy_frep=2
     ):
         """
-        :param: env: An gym environment
-        :param: state_dim: Size of state space
-        :param: action_dim: Size of action space
-        :param: critic_lr: Learning rate of the critic
-        :param: actor_lr: Learning rate of the actor
-        :param: gamma: The discount factor
-        :param: batch_size: The batch size for training
+        :param env: An gym environment
+        :param state_dim: Size of state space
+        :param action_dim: Size of action space
+        :param critic_lr: Learning rate of the critic
+        :param actor_lr: Learning rate of the actor
+        :param gamma: The discount factor
+        :param batch_size: The batch size for training
+        :param policy_frep
         """
         self.gamma = gamma
         self.batch_size = batch_size
