@@ -18,7 +18,7 @@ import pybulletgym.envs
 
 import matplotlib.pyplot as plt
 
-RAND_SEED = 100
+RAND_SEED = 1000
 np.random.seed(RAND_SEED)    # TODO: change random seed
 
 # setup device
