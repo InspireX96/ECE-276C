@@ -464,7 +464,7 @@ if __name__ == "__main__":
         rand_init = True    # random init when testing policy
     else:
         rand_init = False
-    print('\n*** Env rand init = {} Using random seed = {} ***\n'.format(rand_init, RAND_SEED))
+    print('\n*** Env rand init = {}    Using random seed = {} ***\n'.format(rand_init, RAND_SEED))
     env = gym.make("modified_gym_env:ReacherPyBulletEnv-v1",
                    rand_init=rand_init)
 
