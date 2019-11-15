@@ -46,11 +46,11 @@ class Replay():
         """
         A function to initialize the replay buffer.
 
-        :param: buffer_size: Size of replay buffer
-        :param: init_length : Initial number of transitions to collect
-        :param: state_dim : Size of the state space
-        :param: action_dim : Size of the action space
-        :param: env : gym environment object
+        :param buffer_size: Size of replay buffer
+        :param init_length : Initial number of transitions to collect
+        :param state_dim : Size of the state space
+        :param action_dim : Size of the action space
+        :param env : gym environment object
         """
         self.buffer_size = buffer_size  # max size of buffer
         self.init_length = init_length  # initialize buffer using random action
@@ -98,7 +98,7 @@ class Replay():
         """
         A function to add a dictionary to the buffer
 
-        :param: exp : A dictionary consisting of state, action, reward , next state and done flag
+        :param exp : A dictionary consisting of state, action, reward , next state and done flag
         """
         # buffer is not full
         self._buffer.append(exp)
@@ -111,7 +111,7 @@ class Replay():
         """
         A function to sample N points from the buffer
 
-        :param: N : Number of samples to obtain from the buffer
+        :param N : Number of samples to obtain from the buffer
         """
         return random.sample(self._buffer, N)
 
@@ -125,8 +125,8 @@ class Actor(nn.Module):
         """
         Initialize the actor network
 
-        :param: state_dim : Size of the state space
-        :param: action_dim: Size of the action space
+        :param state_dim : Size of the state space
+        :param action_dim: Size of the action space
         """
         super(Actor, self).__init__()
         self.state_dim = state_dim
@@ -183,8 +183,8 @@ class Critic(nn.Module):
         """
         Initialize the critic network
 
-        :param: state_dim : Size of the state space
-        :param: action_dim : Size of the action space
+        :param state_dim : Size of the state space
+        :param action_dim : Size of the action space
         """
         super(Critic, self).__init__()
         self.state_dim = state_dim
@@ -251,13 +251,13 @@ class DDPG():
             batch_size=100,
     ):
         """
-        :param: env: An gym environment
-        :param: state_dim: Size of state space
-        :param: action_dim: Size of action space
-        :param: critic_lr: Learning rate of the critic
-        :param: actor_lr: Learning rate of the actor
-        :param: gamma: The discount factor
-        :param: batch_size: The batch size for training
+        :param env: An gym environment
+        :param state_dim: Size of state space
+        :param action_dim: Size of action space
+        :param critic_lr: Learning rate of the critic
+        :param actor_lr: Learning rate of the actor
+        :param gamma: The discount factor
+        :param batch_size: The batch size for training
         """
         self.gamma = gamma
         self.batch_size = batch_size
