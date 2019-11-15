@@ -53,14 +53,14 @@ class Critic(nn.Module):
 
         # define network layers for the twin Q-functions
         # Q1
-		self.fc1 = nn.Linear(state_dim + action_dim, hidden_size_1)
-		self.fc2 = nn.Linear(hidden_size_1, hidden_size_2)
-		self.fc3 = nn.Linear(hidden_size_2, 1)
+        self.fc1 = nn.Linear(state_dim + action_dim, hidden_size_1)
+        self.fc2 = nn.Linear(hidden_size_1, hidden_size_2)
+        self.fc3 = nn.Linear(hidden_size_2, 1)
 
-		# Q2
-		self.l4 = nn.Linear(state_dim + action_dim, hidden_size_1)
-		self.l5 = nn.Linear(hidden_size_1, hidden_size_2)
-		self.l6 = nn.Linear(hidden_size_2, 1)
+        # Q2
+        self.fc4 = nn.Linear(state_dim + action_dim, hidden_size_1)
+        self.fc5 = nn.Linear(hidden_size_1, hidden_size_2)
+        self.fc6 = nn.Linear(hidden_size_2, 1)
 
         # init weights
         self.fc1.weight.data.uniform_(-1/np.sqrt(self.state_dim + self.action_dim),
@@ -76,8 +76,7 @@ class Critic(nn.Module):
                                       1/np.sqrt(hidden_size_1))
         self.fc6.weight.data.uniform_(-3e-3, 3e-3)
 
-
-	def forward(self, state, action):
+    def forward(self, state, action):
         """
         Define the forward pass of the critic
 
@@ -85,32 +84,31 @@ class Critic(nn.Module):
         :param action: action
         :returns: estimated values
         """
-		sa = torch.cat([state, action], 1)
+        sa = torch.cat([state, action], 1)
 
-		q1 = F.relu(self.fc1(sa))
-		q1 = F.relu(self.fc2(q1))
-		q1 = self.fc3(q1)
+        q1 = F.relu(self.fc1(sa))
+        q1 = F.relu(self.fc2(q1))
+        q1 = self.fc3(q1)
 
-		q2 = F.relu(self.l4(sa))
-		q2 = F.relu(self.l5(q2))
-		q2 = self.l6(q2)
-		return q1, q2
+        q2 = F.relu(self.fc4(sa))
+        q2 = F.relu(self.fc5(q2))
+        q2 = self.fc6(q2)
+        return q1, q2
 
-
-	def Q1(self, state, action):
+    def Q1(self, state, action):
         """
         Forward pass of Q1 only
-        
+
         :param state: The state of the environment
         :param action: action
         :return: estimated value
         """
-		sa = torch.cat([state, action], 1)
+        sa = torch.cat([state, action], 1)
 
-		q1 = F.relu(self.fc1(sa))
-		q1 = F.relu(self.fc2(q1))
-		q1 = self.fc3(q1)
-		return q1
+        q1 = F.relu(self.fc1(sa))
+        q1 = F.relu(self.fc2(q1))
+        q1 = self.fc3(q1)
+        return q1
 
 
 class TD3():
@@ -123,7 +121,7 @@ class TD3():
             actor_lr=3e-4,
             gamma=0.99,
             batch_size=100,
-            policy_frep=2
+            policy_freq=2
     ):
         """
         :param env: An gym environment
@@ -133,12 +131,13 @@ class TD3():
         :param actor_lr: Learning rate of the actor
         :param gamma: The discount factor
         :param batch_size: The batch size for training
-        :param policy_frep
+        :param policy_freq: policy update frequency
         """
         self.gamma = gamma
         self.batch_size = batch_size
         self.env = env
         self.test_env = copy.deepcopy(env)  # environment for evaluation only
+        self.policy_freq = policy_freq
 
         # Create a actor and actor_target
         self.actor = Actor(state_dim, action_dim).to(device)
@@ -217,8 +216,15 @@ class TD3():
             batch_size, -1).to(device)
 
         # get next action
-        next_action = self.actor  # TODO
-        # compute target Q value
+        action_next_batch = torch.clamp(self.actor_target(state_next_batch) + torch.FloatTensor(np.random.multivariate_normal(
+            mean=[0, 0], cov=np.diag([0.1, 0.1]), size=len(state_next_batch))), -1, 1)  # next action batch with noise
+        
+        # Compute the target Q value
+        target_Q1, target_Q2 = self.critic_target(state_next_batch, action_next_batch)
+        target_Q = torch.min(target_Q1, target_Q2)
+        target_Q = reward_batch + not_done_batch * self.gamma * target_Q
+        # TODO
+        import ipdb; ipdb.set_trace()
 
     def train(self, num_steps):
         """
@@ -270,8 +276,6 @@ class TD3():
             critic_loss, actor_loss = self.update_network(batch)
 
 
-
-
 if __name__ == "__main__":
     # argparse
     parser = argparse.ArgumentParser(description='TD3 train and test')
@@ -290,12 +294,9 @@ if __name__ == "__main__":
     if args.test:
         env.render()    # weird render bug, needs to render here
 
-    td3_object = TD3(
-        env,
-        8,
-        2,
-        critic_lr=1e-3,
-        actor_lr=1e-3,
-        gamma=0.99,
-        batch_size=100,
-    )
+    td3_object = TD3(env, 8, 2)
+
+    if not args.test:
+        # Train the policy
+        critic_loss_list, actor_loss_list, eval_step_list, eval_average_reward_list = td3_object.train(
+            200)
