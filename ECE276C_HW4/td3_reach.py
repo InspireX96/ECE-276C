@@ -51,7 +51,52 @@ class Critic(nn.Module):
         hidden_size_1 = 400
         hidden_size_2 = 300
 
-        raise NotImplementedError
+        # define network layers for the twin Q-functions
+        # Q1
+		self.l1 = nn.Linear(state_dim + action_dim, hidden_size_1)
+		self.l2 = nn.Linear(hidden_size_1, hidden_size_2)
+		self.l3 = nn.Linear(hidden_size_2, 1)
+
+		# Q2
+		self.l4 = nn.Linear(state_dim + action_dim, hidden_size_1)
+		self.l5 = nn.Linear(hidden_size_1, hidden_size_2)
+		self.l6 = nn.Linear(hidden_size_2, 1)
+
+
+	def forward(self, state, action):
+        """
+        Define the forward pass of the critic
+
+        :param state: The state of the environment
+        :param action: action
+        :returns: estimated values
+        """
+		sa = torch.cat([state, action], 1)
+
+		q1 = F.relu(self.l1(sa))
+		q1 = F.relu(self.l2(q1))
+		q1 = self.l3(q1)
+
+		q2 = F.relu(self.l4(sa))
+		q2 = F.relu(self.l5(q2))
+		q2 = self.l6(q2)
+		return q1, q2
+
+
+	def Q1(self, state, action):
+        """
+        Forward pass of Q1 only
+        
+        :param state: The state of the environment
+        :param action: action
+        :return: estimated value
+        """
+		sa = torch.cat([state, action], 1)
+
+		q1 = F.relu(self.l1(sa))
+		q1 = F.relu(self.l2(q1))
+		q1 = self.l3(q1)
+		return q1
 
 
 class TD3():

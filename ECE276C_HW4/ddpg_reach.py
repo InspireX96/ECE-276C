@@ -156,6 +156,7 @@ class Actor(nn.Module):
         Define the forward pass
 
         param: state: The state of the environment
+        :return: estimated action
         """
         if isinstance(state, np.ndarray):
             x = torch.FloatTensor(state)
@@ -214,6 +215,7 @@ class Critic(nn.Module):
 
         :param state: The state of the environment
         :param action: action
+        :return: estimated value
         """
         if isinstance(state, np.ndarray):
             x = torch.FloatTensor(state)
