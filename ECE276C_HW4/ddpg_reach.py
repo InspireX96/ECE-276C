@@ -11,7 +11,6 @@ import time
 import torch.nn as nn
 import torch.nn.functional as F
 from torch import optim
-from torch.autograd import Variable
 
 import gym
 import pybullet
@@ -19,7 +18,8 @@ import pybulletgym.envs
 
 import matplotlib.pyplot as plt
 
-np.random.seed(1000)    # TODO: change random seed
+RAND_SEED = 100
+np.random.seed(RAND_SEED)    # TODO: change random seed
 
 # setup device
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -491,14 +491,14 @@ if __name__ == "__main__":
         plt.plot(critic_loss_list)
         plt.xlabel('steps')
         plt.title('DDPG Critic Loss')
-        plt.savefig('Question_1-1.png')
+        plt.savefig('Question_1-1_{}.png'.format(RAND_SEED))
         plt.show()
 
         plt.figure()
         plt.plot(actor_loss_list)
         plt.xlabel('steps')
         plt.title('DDPG Actor Loss')
-        plt.savefig('Question_1-2.png')
+        plt.savefig('Question_1-2_{}.png'.format(RAND_SEED))
         plt.show()
 
         # plot eval step
@@ -506,7 +506,7 @@ if __name__ == "__main__":
         plt.plot(eval_step_list)
         plt.xlabel('*100 steps')
         plt.title('DDPG Evaluated Finish Steps')
-        plt.savefig('Question_1-3.png')
+        plt.savefig('Question_1-3_{}.png'.format(RAND_SEED))
         plt.show()
 
         # plot eval reward
@@ -514,7 +514,7 @@ if __name__ == "__main__":
         plt.plot(eval_average_reward_list)
         plt.xlabel('*100 steps')
         plt.title('DDPG Evaluated Average Rewards')
-        plt.savefig('Question_1-4.png')
+        plt.savefig('Question_1-4_{}.png'.format(RAND_SEED))
         plt.show()
 
         # save final actor network
