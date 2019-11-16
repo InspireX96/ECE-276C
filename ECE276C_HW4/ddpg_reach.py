@@ -522,6 +522,8 @@ if __name__ == "__main__":
         # save final actor network
         with open('ddpg_actor.pkl', 'wb') as pickle_file:
             pickle.dump(ddpg_object.actor, pickle_file)
+        np.save('ddpg_eval_step_list.npy', eval_step_list)
+        np.save('ddpg_eval_average_reward_list.npy', eval_average_reward_list)
 
     if args.test:
         # Evaluate the final policy
@@ -537,7 +539,8 @@ if __name__ == "__main__":
             step = 0
             done = False
             while not done:
-                action = ddpg_object.actor(torch.FloatTensor(state).to(device)).cpu().detach().squeeze().numpy()
+                action = ddpg_object.actor(torch.FloatTensor(
+                    state).to(device)).cpu().detach().squeeze().numpy()
                 next_state, r, done, _ = env.step(action)
                 time.sleep(0.1)
                 state = next_state

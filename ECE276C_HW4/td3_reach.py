@@ -219,17 +219,19 @@ class TD3():
         # get next action
         action_next_batch = torch.clamp(self.actor_target(state_next_batch) + torch.FloatTensor(np.random.multivariate_normal(
             mean=[0, 0], cov=np.diag([0.1, 0.1]), size=len(state_next_batch))).to(device), -1, 1)  # next action batch with noise
-        
+
         # Compute the target Q value
-        target_Q1, target_Q2 = self.critic_target(state_next_batch, action_next_batch)
+        target_Q1, target_Q2 = self.critic_target(
+            state_next_batch, action_next_batch)
         target_Q = torch.min(target_Q1, target_Q2)
         target_Q = reward_batch + not_done_batch * self.gamma * target_Q
-        
+
         # Get current Q estimates
         current_Q1, current_Q2 = self.critic(state_batch, action_batch)
 
         # Compute critic loss
-        critic_loss = F.mse_loss(current_Q1, target_Q) + F.mse_loss(current_Q2, target_Q)
+        critic_loss = F.mse_loss(current_Q1, target_Q) + \
+            F.mse_loss(current_Q2, target_Q)
 
         # Optimize the critic
         self.optimizer_critic.zero_grad()
@@ -239,9 +241,10 @@ class TD3():
         # Delayed policy updates
         if self.total_step % self.policy_freq == 0:
             # Compute actor lose
-            actor_loss = - self.critic.Q1(state_batch, self.actor(state_batch)).mean()
-            
-            # Optimize the actor 
+            actor_loss = - \
+                self.critic.Q1(state_batch, self.actor(state_batch)).mean()
+
+            # Optimize the actor
             self.optimizer_actor.zero_grad()
             actor_loss.backward()
             self.optimizer_actor.step()
@@ -250,7 +253,6 @@ class TD3():
             self.update_target_networks()
             return critic_loss.item(), actor_loss.item()
         return critic_loss.item(), None
-
 
     def train(self, num_steps):
         """
@@ -316,7 +318,6 @@ class TD3():
 
         print('Training time: {} (sec)'.format(time.time() - time_start))
         return critic_loss_list, actor_loss_list, eval_step_list, eval_average_reward_list
-
 
     def eval(self):
         """
@@ -402,6 +403,8 @@ if __name__ == "__main__":
         # save final actor network
         with open('td3_actor.pkl', 'wb') as pickle_file:
             pickle.dump(ddpg_object.actor, pickle_file)
+        np.save('td3_eval_step_list.npy', eval_step_list)
+        np.save('td3_eval_average_reward_list.npy', eval_average_reward_list)
 
     if args.test:
         # Evaluate the final policy
@@ -417,7 +420,8 @@ if __name__ == "__main__":
             step = 0
             done = False
             while not done:
-                action = ddpg_object.actor(torch.FloatTensor(state).to(device)).cpu().detach().squeeze().numpy()
+                action = ddpg_object.actor(torch.FloatTensor(
+                    state).to(device)).cpu().detach().squeeze().numpy()
                 next_state, r, done, _ = env.step(action)
                 time.sleep(0.1)
                 state = next_state
