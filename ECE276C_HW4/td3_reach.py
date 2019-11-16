@@ -402,7 +402,7 @@ if __name__ == "__main__":
 
         # save final actor network
         with open('td3_actor.pkl', 'wb') as pickle_file:
-            pickle.dump(ddpg_object.actor, pickle_file)
+            pickle.dump(td3_object.actor, pickle_file)
         np.save('td3_eval_step_list.npy', eval_step_list)
         np.save('td3_eval_average_reward_list.npy', eval_average_reward_list)
 
@@ -420,7 +420,7 @@ if __name__ == "__main__":
             step = 0
             done = False
             while not done:
-                action = ddpg_object.actor(torch.FloatTensor(
+                action = td3_object.actor(torch.FloatTensor(
                     state).to(device)).cpu().detach().squeeze().numpy()
                 next_state, r, done, _ = env.step(action)
                 time.sleep(0.1)
