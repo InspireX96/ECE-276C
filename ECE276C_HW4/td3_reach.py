@@ -138,6 +138,7 @@ class TD3():
         self.env = env
         self.test_env = copy.deepcopy(env)  # environment for evaluation only
         self.policy_freq = policy_freq
+        self.total_step = 1     # start from 1 so we can print actor loss for every 100 steps
 
         # Create a actor and actor_target
         self.actor = Actor(state_dim, action_dim).to(device)
@@ -217,14 +218,39 @@ class TD3():
 
         # get next action
         action_next_batch = torch.clamp(self.actor_target(state_next_batch) + torch.FloatTensor(np.random.multivariate_normal(
-            mean=[0, 0], cov=np.diag([0.1, 0.1]), size=len(state_next_batch))), -1, 1)  # next action batch with noise
+            mean=[0, 0], cov=np.diag([0.1, 0.1]), size=len(state_next_batch))).to(device), -1, 1)  # next action batch with noise
         
         # Compute the target Q value
         target_Q1, target_Q2 = self.critic_target(state_next_batch, action_next_batch)
         target_Q = torch.min(target_Q1, target_Q2)
         target_Q = reward_batch + not_done_batch * self.gamma * target_Q
-        # TODO
-        import ipdb; ipdb.set_trace()
+        
+        # Get current Q estimates
+        current_Q1, current_Q2 = self.critic(state_batch, action_batch)
+
+        # Compute critic loss
+        critic_loss = F.mse_loss(current_Q1, target_Q) + F.mse_loss(current_Q2, target_Q)
+
+        # Optimize the critic
+        self.optimizer_critic.zero_grad()
+        critic_loss.backward()
+        self.optimizer_critic.step()
+
+        # Delayed policy updates
+        if self.total_step % self.policy_freq == 0:
+            # Compute actor lose
+            actor_loss = - self.critic.Q1(state_batch, self.actor(state_batch)).mean()
+            
+            # Optimize the actor 
+            self.optimizer_actor.zero_grad()
+            actor_loss.backward()
+            self.optimizer_actor.step()
+
+            # soft update
+            self.update_target_networks()
+            return critic_loss.item(), actor_loss.item()
+        return critic_loss.item(), None
+
 
     def train(self, num_steps):
         """
@@ -250,6 +276,7 @@ class TD3():
             # NOTE: add noise to action using multivariable Gaussian and clip it between -1 to 1
             action = self.select_action_with_noise(state)
             state_next, reward, done, _ = self.env.step(action)     # step
+            self.total_step += 1
             traj_step += 1
 
             # store transition in R
@@ -275,6 +302,46 @@ class TD3():
             # update network
             critic_loss, actor_loss = self.update_network(batch)
 
+            critic_loss_list.append(critic_loss)
+            actor_loss_list.append(actor_loss)
+
+            if i % 100 == 0:
+                # test policy
+                eval_step, eval_average_reward = self.eval()
+                eval_step_list.append(eval_step)
+                eval_average_reward_list.append(eval_average_reward)
+                if actor_loss is not None:
+                    print('step [{}/{}] ({:.1f} %), critic_loss = {:.4f}, actor_loss = {:.4f}; Eval result: step = {}, average reward = {:.4f}'
+                          .format(i, num_steps, i / num_steps * 100, critic_loss, actor_loss, eval_step, eval_average_reward))
+
+        print('Training time: {} (sec)'.format(time.time() - time_start))
+        return critic_loss_list, actor_loss_list, eval_step_list, eval_average_reward_list
+
+
+    def eval(self):
+        """
+        Evaluate the policy in a separate resetted environment
+        NOTE: this function does not provider render feature
+
+        :returns: int, steps
+                  float, average reward collected during test
+        """
+        state = self.test_env.reset()
+
+        step = 0
+        average_reward = 0
+        done = False
+        while not done:
+            action = self.actor(torch.FloatTensor(state).to(
+                device)).cpu().detach().squeeze().numpy()
+            next_state, r, done, _ = self.test_env.step(action)
+            state = next_state
+            step += 1
+            average_reward += r
+
+        average_reward /= step
+        return step, average_reward
+
 
 if __name__ == "__main__":
     # argparse
@@ -299,4 +366,63 @@ if __name__ == "__main__":
     if not args.test:
         # Train the policy
         critic_loss_list, actor_loss_list, eval_step_list, eval_average_reward_list = td3_object.train(
-            200)
+            200000)
+
+        # plot loss
+        plt.figure()
+        plt.plot(critic_loss_list)
+        plt.xlabel('steps')
+        plt.title('TD3 Critic Loss')
+        plt.savefig('Question_2-1_{}.png'.format(RAND_SEED))
+        plt.show()
+
+        plt.figure()
+        plt.plot(actor_loss_list)
+        plt.xlabel('steps')
+        plt.title('TD3 Actor Loss')
+        plt.savefig('Question_2-2_{}.png'.format(RAND_SEED))
+        plt.show()
+
+        # plot eval step
+        plt.figure()
+        plt.plot(eval_step_list)
+        plt.xlabel('*100 steps')
+        plt.title('TD3 Evaluated Finish Steps')
+        plt.savefig('Question_2-3_{}.png'.format(RAND_SEED))
+        plt.show()
+
+        # plot eval reward
+        plt.figure()
+        plt.plot(eval_average_reward_list)
+        plt.xlabel('*100 steps')
+        plt.title('TD3 Evaluated Average Rewards')
+        plt.savefig('Question_2-4_{}.png'.format(RAND_SEED))
+        plt.show()
+
+        # save final actor network
+        with open('td3_actor.pkl', 'wb') as pickle_file:
+            pickle.dump(ddpg_object.actor, pickle_file)
+
+    if args.test:
+        # Evaluate the final policy
+        print('\n*** Evaluating Policy ***\n')
+
+        # load policy
+        try:
+            with open('td3_actor.pkl', 'rb') as pickle_file:
+                td3_object.actor = pickle.load(pickle_file)
+
+            state = env.reset()
+            time.sleep(3)   # time for preparing screenshot
+            step = 0
+            done = False
+            while not done:
+                action = ddpg_object.actor(torch.FloatTensor(state).to(device)).cpu().detach().squeeze().numpy()
+                next_state, r, done, _ = env.step(action)
+                time.sleep(0.1)
+                state = next_state
+                step += 1
+                print('Step: {}, action: {}, reward: {}'.format(step, action, r))
+
+        except IOError as err:
+            print('ERROR: cannot load policy. Please train first. ', err)
